@@ -1,0 +1,7 @@
+services:
+  garage-visualizer:
+    build: .
+    container_name: garage-floor-visualizer
+    ports:
+      - "3085:80"
+    restart: unless-stopped
