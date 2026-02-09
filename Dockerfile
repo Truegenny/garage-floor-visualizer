@@ -4,12 +4,14 @@ WORKDIR /app
 COPY server/package.json server/package-lock.json* ./
 RUN npm ci --omit=dev 2>/dev/null || npm install --omit=dev
 
-# Stage 2: Final image
-FROM nginx:alpine
-RUN apk add --no-cache nodejs
+# Stage 2: Final image — use same Node base so native modules match
+FROM node:20-alpine
+RUN apk add --no-cache nginx
 
 # Copy nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Remove default nginx config that conflicts
+RUN rm -f /etc/nginx/http.d/default.conf
 
 # Copy static files
 COPY index.html style.css app.js /usr/share/nginx/html/
