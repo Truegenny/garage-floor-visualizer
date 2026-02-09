@@ -85,6 +85,13 @@
   let activeCategory = 'vehicles';
   let dragging = null;
 
+  // ===== AUTH / PLAN STATE =====
+  let authToken = localStorage.getItem('authToken') || null;
+  let currentUser = null;
+  let currentPlanId = null;
+  let plansList = [];
+  let autoSaveTimer = null;
+
   // ===== DOM =====
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
@@ -115,6 +122,323 @@
     ctx.arcTo(x, y + h, x, y, r);
     ctx.arcTo(x, y, x + w, y, r);
     ctx.closePath();
+  }
+
+  // ===== API HELPERS =====
+  async function apiFetch(path, opts = {}) {
+    const headers = { 'Content-Type': 'application/json', ...opts.headers };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+    const res = await fetch(path, { ...opts, headers });
+    if (res.status === 401) {
+      logout();
+      return null;
+    }
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `Request failed (${res.status})`);
+    }
+    if (res.status === 204) return null;
+    return res.json();
+  }
+
+  // ===== AUTH FUNCTIONS =====
+  async function login(email, password) {
+    const data = await apiFetch('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+    if (!data) throw new Error('Login failed');
+    authToken = data.token;
+    currentUser = data.user;
+    localStorage.setItem('authToken', authToken);
+    onAuthChange();
+    return data;
+  }
+
+  async function register(email, password) {
+    const data = await apiFetch('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+    if (!data) throw new Error('Registration failed');
+    authToken = data.token;
+    currentUser = data.user;
+    localStorage.setItem('authToken', authToken);
+    onAuthChange();
+    return data;
+  }
+
+  function logout() {
+    authToken = null;
+    currentUser = null;
+    currentPlanId = null;
+    plansList = [];
+    localStorage.removeItem('authToken');
+    if (autoSaveTimer) { clearTimeout(autoSaveTimer); autoSaveTimer = null; }
+    onAuthChange();
+  }
+
+  async function checkAuth() {
+    if (!authToken) return;
+    try {
+      const data = await apiFetch('/api/auth/me');
+      if (data) {
+        currentUser = data;
+        onAuthChange();
+      }
+    } catch {
+      authToken = null;
+      localStorage.removeItem('authToken');
+    }
+  }
+
+  // ===== PLANS CRUD =====
+  async function loadPlansList() {
+    if (!authToken) return;
+    try {
+      plansList = await apiFetch('/api/plans') || [];
+      renderPlansList();
+    } catch { plansList = []; renderPlansList(); }
+  }
+
+  async function savePlan() {
+    if (!authToken) return;
+    const layoutData = JSON.stringify({ room, objects, nextId });
+    if (currentPlanId) {
+      try {
+        await apiFetch(`/api/plans/${currentPlanId}`, {
+          method: 'PUT',
+          body: JSON.stringify({ data: layoutData }),
+        });
+        await loadPlansList();
+      } catch (e) { alert('Save failed: ' + e.message); }
+    } else {
+      await saveAsNew();
+    }
+  }
+
+  async function saveAsNew() {
+    if (!authToken) return;
+    const name = prompt('Plan name:', 'My Garage Layout');
+    if (!name) return;
+    const layoutData = JSON.stringify({ room, objects, nextId });
+    try {
+      const plan = await apiFetch('/api/plans', {
+        method: 'POST',
+        body: JSON.stringify({ name, data: layoutData }),
+      });
+      if (plan) {
+        currentPlanId = plan.id;
+        await loadPlansList();
+      }
+    } catch (e) { alert('Save failed: ' + e.message); }
+  }
+
+  async function loadPlan(id) {
+    if (!authToken) return;
+    try {
+      const plan = await apiFetch(`/api/plans/${id}`);
+      if (!plan) return;
+      const d = JSON.parse(plan.data);
+      room = d.room || room;
+      objects = d.objects || [];
+      nextId = d.nextId || 1;
+      selected = null;
+      currentPlanId = plan.id;
+      document.getElementById('room-w-ft').value = Math.floor(room.w / 12);
+      document.getElementById('room-w-in').value = Math.round(room.w % 12);
+      document.getElementById('room-d-ft').value = Math.floor(room.h / 12);
+      document.getElementById('room-d-in').value = Math.round(room.h % 12);
+      updateSelected();
+      renderPlansList();
+      saveLocal();
+      fitView();
+    } catch (e) { alert('Load failed: ' + e.message); }
+  }
+
+  async function deletePlan(id) {
+    if (!confirm('Delete this floor plan?')) return;
+    try {
+      await apiFetch(`/api/plans/${id}`, { method: 'DELETE' });
+      if (currentPlanId === id) currentPlanId = null;
+      await loadPlansList();
+    } catch (e) { alert('Delete failed: ' + e.message); }
+  }
+
+  async function renamePlan(id) {
+    const plan = plansList.find(p => p.id === id);
+    if (!plan) return;
+    const name = prompt('New name:', plan.name);
+    if (!name || name === plan.name) return;
+    try {
+      await apiFetch(`/api/plans/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name }),
+      });
+      await loadPlansList();
+    } catch (e) { alert('Rename failed: ' + e.message); }
+  }
+
+  // Debounced auto-save to server
+  function scheduleAutoSave() {
+    if (!authToken || !currentPlanId) return;
+    if (autoSaveTimer) clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(async () => {
+      autoSaveTimer = null;
+      const layoutData = JSON.stringify({ room, objects, nextId });
+      try {
+        await apiFetch(`/api/plans/${currentPlanId}`, {
+          method: 'PUT',
+          body: JSON.stringify({ data: layoutData }),
+        });
+      } catch { /* silent fail for auto-save */ }
+    }, 2000);
+  }
+
+  // ===== UI: AUTH STATE CHANGE =====
+  function onAuthChange() {
+    const userBar = document.getElementById('user-bar');
+    const loginBar = document.getElementById('login-bar');
+    const plansPanel = document.getElementById('plans-panel');
+
+    if (currentUser) {
+      userBar.style.display = 'flex';
+      loginBar.style.display = 'none';
+      plansPanel.style.display = 'block';
+      document.getElementById('user-email').textContent = currentUser.email;
+      loadPlansList().then(async () => {
+        // On first login with localStorage data but no server plans, offer import
+        if (plansList.length === 0 && objects.length > 0) {
+          if (confirm('You have a layout in your browser. Import it as a saved plan?')) {
+            const name = prompt('Plan name:', 'Imported Layout') || 'Imported Layout';
+            const layoutData = JSON.stringify({ room, objects, nextId });
+            try {
+              const plan = await apiFetch('/api/plans', {
+                method: 'POST',
+                body: JSON.stringify({ name, data: layoutData }),
+              });
+              if (plan) { currentPlanId = plan.id; await loadPlansList(); }
+            } catch { /* ignore */ }
+          }
+        }
+      });
+    } else {
+      userBar.style.display = 'none';
+      loginBar.style.display = 'block';
+      plansPanel.style.display = 'none';
+      currentPlanId = null;
+      renderPlansList();
+    }
+  }
+
+  function renderPlansList() {
+    const list = document.getElementById('plans-list');
+    const empty = document.getElementById('plans-empty');
+    list.innerHTML = '';
+
+    if (plansList.length === 0) {
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+
+    for (const plan of plansList) {
+      const div = document.createElement('div');
+      div.className = 'plan-item' + (plan.id === currentPlanId ? ' active' : '');
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'plan-item-name';
+      nameSpan.textContent = plan.name;
+
+      const dateSpan = document.createElement('span');
+      dateSpan.className = 'plan-item-date';
+      const d = new Date(plan.updated_at + 'Z');
+      dateSpan.textContent = d.toLocaleDateString();
+
+      const actions = document.createElement('span');
+      actions.className = 'plan-item-actions';
+
+      const renameBtn = document.createElement('button');
+      renameBtn.className = 'plan-btn';
+      renameBtn.textContent = 'Rename';
+      renameBtn.addEventListener('click', (e) => { e.stopPropagation(); renamePlan(plan.id); });
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'plan-btn danger';
+      delBtn.textContent = 'Del';
+      delBtn.addEventListener('click', (e) => { e.stopPropagation(); deletePlan(plan.id); });
+
+      actions.appendChild(renameBtn);
+      actions.appendChild(delBtn);
+
+      div.appendChild(nameSpan);
+      div.appendChild(dateSpan);
+      div.appendChild(actions);
+      div.addEventListener('click', () => loadPlan(plan.id));
+      list.appendChild(div);
+    }
+  }
+
+  // ===== AUTH MODAL =====
+  function setupAuthModal() {
+    const modal = document.getElementById('auth-modal');
+    const form = document.getElementById('auth-form');
+    const title = document.getElementById('auth-modal-title');
+    const submitBtn = document.getElementById('btn-auth-submit');
+    const toggleText = document.getElementById('auth-toggle-text');
+    const toggleLink = document.getElementById('auth-toggle-link');
+    const errorEl = document.getElementById('auth-error');
+    let isLogin = true;
+
+    function setMode(loginMode) {
+      isLogin = loginMode;
+      title.textContent = isLogin ? 'Login' : 'Register';
+      submitBtn.textContent = isLogin ? 'Login' : 'Register';
+      toggleText.textContent = isLogin ? "Don't have an account?" : 'Already have an account?';
+      toggleLink.textContent = isLogin ? 'Register' : 'Login';
+      errorEl.style.display = 'none';
+    }
+
+    document.getElementById('btn-show-auth').addEventListener('click', () => {
+      setMode(true);
+      form.reset();
+      modal.style.display = 'flex';
+    });
+
+    document.getElementById('btn-auth-close').addEventListener('click', () => {
+      modal.style.display = 'none';
+    });
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.style.display = 'none';
+    });
+
+    toggleLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      setMode(!isLogin);
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('auth-email').value.trim();
+      const password = document.getElementById('auth-password').value;
+      errorEl.style.display = 'none';
+      submitBtn.disabled = true;
+      try {
+        if (isLogin) {
+          await login(email, password);
+        } else {
+          await register(email, password);
+        }
+        modal.style.display = 'none';
+        form.reset();
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
   }
 
   // ===== COORDINATE TRANSFORMS =====
@@ -592,9 +916,14 @@
   }
 
   // ===== PERSISTENCE =====
-  function save() {
+  function saveLocal() {
     try { localStorage.setItem('garageLayout', JSON.stringify({ room, objects, nextId })); }
     catch (_) {}
+  }
+
+  function save() {
+    saveLocal();
+    scheduleAutoSave();
   }
 
   function load() {
@@ -635,10 +964,21 @@
     load();
     populateCatalog('vehicles');
 
+    // Changelog modal
     const modal = document.getElementById('modal-overlay');
     document.getElementById('btn-info').addEventListener('click', () => { modal.style.display = 'flex'; });
     document.getElementById('btn-modal-close').addEventListener('click', () => { modal.style.display = 'none'; });
     modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+
+    // Auth modal
+    setupAuthModal();
+
+    // Logout button
+    document.getElementById('btn-logout').addEventListener('click', logout);
+
+    // Plans buttons
+    document.getElementById('btn-save-plan').addEventListener('click', savePlan);
+    document.getElementById('btn-save-as-new').addEventListener('click', saveAsNew);
 
     document.getElementById('btn-update-room').addEventListener('click', updateRoom);
     document.getElementById('btn-rotate').addEventListener('click', rotateSelected);
@@ -682,6 +1022,9 @@
     window.addEventListener('resize', resize);
     resize();
     fitView();
+
+    // Restore auth session
+    checkAuth();
   }
 
   init();

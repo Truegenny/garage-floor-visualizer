@@ -82,6 +82,147 @@ body {
   margin-bottom: 8px;
 }
 
+/* ===== USER BAR ===== */
+.user-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.user-email {
+  font-size: 12px;
+  color: #9ca3af;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.btn-sm {
+  padding: 3px 10px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+/* ===== PLANS PANEL ===== */
+.plans-actions {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.plans-actions .btn {
+  flex: 1;
+  text-align: center;
+}
+
+.plans-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.plan-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: #1a1a2e;
+  border: 1px solid #2d3748;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: border-color 0.15s;
+}
+
+.plan-item:hover { border-color: #e94560; }
+
+.plan-item.active {
+  border-color: #e94560;
+  background: #1e2a4a;
+}
+
+.plan-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #d0d0d0;
+}
+
+.plan-item-date {
+  font-size: 10px;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+.plan-item-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.plan-btn {
+  padding: 2px 5px;
+  border: 1px solid #374151;
+  background: #1e3a5f;
+  color: #9ca3af;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 10px;
+  transition: all 0.15s;
+}
+
+.plan-btn:hover { color: #fff; background: #264d7a; }
+.plan-btn.danger:hover { background: #7f1d1d; border-color: #991b1b; }
+
+.plans-empty {
+  font-size: 12px;
+  color: #6b7280;
+  text-align: center;
+  padding: 8px 0;
+}
+
+/* ===== AUTH MODAL ===== */
+.auth-field {
+  margin-bottom: 10px;
+}
+
+.auth-field label {
+  display: block;
+  font-size: 12px;
+  color: #9ca3af;
+  margin-bottom: 4px;
+}
+
+.auth-field input {
+  width: 100%;
+}
+
+.auth-error {
+  color: #ef4444;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.auth-toggle {
+  margin-top: 12px;
+  font-size: 12px;
+  color: #6b7280;
+  text-align: center;
+}
+
+.auth-toggle a {
+  color: #e94560;
+  text-decoration: none;
+}
+
+.auth-toggle a:hover { text-decoration: underline; }
+
 /* ===== INPUTS ===== */
 .dim-row {
   display: flex;
@@ -101,7 +242,7 @@ body {
   width: 52px;
 }
 
-input[type="number"], input[type="text"] {
+input[type="number"], input[type="text"], input[type="email"], input[type="password"] {
   background: #1a1a2e;
   border: 1px solid #374151;
   color: #e0e0e0;
@@ -110,7 +251,7 @@ input[type="number"], input[type="text"] {
   font-size: 13px;
 }
 
-input[type="number"]:focus, input[type="text"]:focus {
+input[type="number"]:focus, input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus {
   outline: none;
   border-color: #e94560;
 }
@@ -148,6 +289,11 @@ input[type="number"]:focus, input[type="text"]:focus {
 .btn.danger:hover { background: #991b1b; }
 
 .btn.full { width: 100%; }
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 .btn-row {
   display: flex;
@@ -349,7 +495,6 @@ input[type="color"] {
 
 .ctrl-label input { cursor: pointer; }
 
-/* ===== SCROLLBAR ===== */
 /* ===== MODAL ===== */
 .modal-overlay {
   position: fixed;
@@ -421,15 +566,15 @@ input[type="color"] {
 .modal-body li { margin-bottom: 3px; }
 
 /* ===== SCROLLBAR ===== */
-#sidebar::-webkit-scrollbar, .catalog-list::-webkit-scrollbar {
+#sidebar::-webkit-scrollbar, .catalog-list::-webkit-scrollbar, .plans-list::-webkit-scrollbar {
   width: 6px;
 }
 
-#sidebar::-webkit-scrollbar-track, .catalog-list::-webkit-scrollbar-track {
+#sidebar::-webkit-scrollbar-track, .catalog-list::-webkit-scrollbar-track, .plans-list::-webkit-scrollbar-track {
   background: transparent;
 }
 
-#sidebar::-webkit-scrollbar-thumb, .catalog-list::-webkit-scrollbar-thumb {
+#sidebar::-webkit-scrollbar-thumb, .catalog-list::-webkit-scrollbar-thumb, .plans-list::-webkit-scrollbar-thumb {
   background: #374151;
   border-radius: 3px;
 }
