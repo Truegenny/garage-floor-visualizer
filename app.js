@@ -13,6 +13,16 @@
       ]
     },
     {
+      category: 'Lifts',
+      id: 'lifts',
+      items: [
+        { name: 'HF Motorcycle Lift (1500lb)',   w: 24,  h: 84.5, color: '#b91c1c' },
+        { name: 'JEGS Motorcycle Lift',           w: 22,  h: 75,   color: '#f59e0b' },
+        { name: 'Car Scissor Lift (Mid-Rise)',    w: 48,  h: 50,   color: '#64748b' },
+        { name: 'Car Scissor Lift (Full-Rise)',   w: 48,  h: 72,   color: '#475569' },
+      ]
+    },
+    {
       category: 'Woodworking',
       id: 'woodworking',
       items: [
@@ -381,9 +391,28 @@
     const obj = objects.find(o => o.id === selected);
     if (!obj) { panel.style.display = 'none'; return; }
     panel.style.display = 'block';
-    document.getElementById('sel-name').textContent = obj.name;
-    document.getElementById('sel-dims').textContent =
-      `${fmt(obj.w)} x ${fmt(obj.h)} | Rotated ${obj.rotation}\u00b0`;
+    document.getElementById('edit-name').value = obj.name;
+    document.getElementById('edit-w-ft').value = Math.floor(obj.w / 12);
+    document.getElementById('edit-w-in').value = Math.round(obj.w % 12);
+    document.getElementById('edit-d-ft').value = Math.floor(obj.h / 12);
+    document.getElementById('edit-d-in').value = Math.round(obj.h % 12);
+    document.getElementById('edit-color').value = obj.color;
+    document.getElementById('sel-rotation').textContent = `Rotated ${obj.rotation}\u00b0`;
+  }
+
+  function applyEdit() {
+    const obj = objects.find(o => o.id === selected);
+    if (!obj) return;
+    obj.name = document.getElementById('edit-name').value.trim() || obj.name;
+    const nw = (parseInt(document.getElementById('edit-w-ft').value) || 0) * 12
+             + (parseInt(document.getElementById('edit-w-in').value) || 0);
+    const nh = (parseInt(document.getElementById('edit-d-ft').value) || 0) * 12
+             + (parseInt(document.getElementById('edit-d-in').value) || 0);
+    if (nw > 0) obj.w = nw;
+    if (nh > 0) obj.h = nh;
+    obj.color = document.getElementById('edit-color').value;
+    save();
+    render();
   }
 
   function updateRoom() {
@@ -452,6 +481,7 @@
     document.getElementById('btn-update-room').addEventListener('click', updateRoom);
     document.getElementById('btn-rotate').addEventListener('click', rotateSelected);
     document.getElementById('btn-delete').addEventListener('click', deleteSelected);
+    document.getElementById('btn-apply-edit').addEventListener('click', applyEdit);
 
     document.getElementById('btn-zoom-in').addEventListener('click', () => {
       scale = Math.min(25, scale * 1.25); render();
@@ -471,7 +501,8 @@
       const d = (parseInt(document.getElementById('custom-d-ft').value) || 0) * 12
               + (parseInt(document.getElementById('custom-d-in').value) || 0);
       if (w <= 0 || d <= 0) return;
-      addObject({ name, w, h: d, color: '#22c55e' });
+      const color = document.getElementById('custom-color').value;
+      addObject({ name, w, h: d, color });
     });
 
     document.getElementById('btn-clear').addEventListener('click', () => {

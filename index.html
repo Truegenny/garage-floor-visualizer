@@ -45,13 +45,32 @@
           <input type="number" id="custom-d-ft" value="0" min="0"> ft
           <input type="number" id="custom-d-in" value="24" min="0"> in
         </div>
+        <div class="color-row">
+          <label>Color</label>
+          <input type="color" id="custom-color" value="#22c55e">
+        </div>
         <button id="btn-add-custom" class="btn primary">Add Custom</button>
       </section>
 
       <section class="panel" id="selected-panel" style="display:none">
-        <h2>Selected Object</h2>
-        <p id="sel-name" class="sel-info"></p>
-        <p id="sel-dims" class="sel-info dim"></p>
+        <h2>Edit Selected</h2>
+        <input type="text" id="edit-name" class="input-full">
+        <div class="dim-row">
+          <label>W</label>
+          <input type="number" id="edit-w-ft" min="0"> ft
+          <input type="number" id="edit-w-in" min="0"> in
+        </div>
+        <div class="dim-row">
+          <label>D</label>
+          <input type="number" id="edit-d-ft" min="0"> ft
+          <input type="number" id="edit-d-in" min="0"> in
+        </div>
+        <div class="color-row">
+          <label>Color</label>
+          <input type="color" id="edit-color" value="#3b82f6">
+        </div>
+        <p id="sel-rotation" class="sel-info dim"></p>
+        <button id="btn-apply-edit" class="btn primary">Apply Changes</button>
         <div class="btn-row">
           <button id="btn-rotate" class="btn">Rotate 90&deg;</button>
           <button id="btn-delete" class="btn danger">Delete</button>

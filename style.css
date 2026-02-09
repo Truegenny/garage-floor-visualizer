@@ -193,6 +193,31 @@ input[type="number"]:focus, input[type="text"]:focus {
   color: #6b7280;
 }
 
+/* ===== COLOR PICKER ROW ===== */
+.color-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.color-row label {
+  width: 40px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+input[type="color"] {
+  width: 48px;
+  height: 28px;
+  padding: 1px 2px;
+  border: 1px solid #374151;
+  border-radius: 4px;
+  background: #1a1a2e;
+  cursor: pointer;
+}
+
 /* ===== SELECTED PANEL ===== */
 .sel-info {
   font-size: 13px;
@@ -202,6 +227,7 @@ input[type="number"]:focus, input[type="text"]:focus {
 .sel-info.dim {
   font-size: 11px;
   color: #9ca3af;
+  margin-bottom: 4px;
 }
 
 /* ===== HELP ===== */
