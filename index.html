@@ -9,7 +9,13 @@
 <body>
   <div id="app">
     <aside id="sidebar">
-      <h1>Garage Floor Planner</h1>
+      <div class="header-row">
+        <h1>Garage Floor Planner</h1>
+        <div class="header-right">
+          <span class="version">v1.2.0</span>
+          <button id="btn-info" class="info-btn" title="Changelog">i</button>
+        </div>
+      </div>
 
       <section class="panel">
         <h2>Room Size</h2>
@@ -104,6 +110,40 @@
         <label class="ctrl-label"><input type="checkbox" id="chk-labels" checked> Labels</label>
       </div>
     </main>
+  </div>
+  <div id="modal-overlay" class="modal-overlay" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Garage Floor Planner <span class="version">v1.2.0</span></h2>
+        <button id="btn-modal-close" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <h3>v1.2.0</h3>
+        <ul>
+          <li>Added version number and changelog</li>
+          <li>Added info button</li>
+        </ul>
+        <h3>v1.1.0</h3>
+        <ul>
+          <li>Added Lifts category: HF Motorcycle Lift, JEGS Motorcycle Lift, Car Scissor Lifts (mid-rise &amp; full-rise)</li>
+          <li>Color picker for custom objects</li>
+          <li>Edit placed objects: change name, dimensions, and color after placement</li>
+        </ul>
+        <h3>v1.0.0</h3>
+        <ul>
+          <li>Initial release</li>
+          <li>Custom room size in feet/inches</li>
+          <li>Vehicles: 2021 Honda Passport, 2023 KTM Duke 890 R, 2021 Honda Grom</li>
+          <li>DeWalt woodworking tools: 13" Planer, 10" Table Saw, 12" Miter Saw, Scroll Saw, and more</li>
+          <li>Tool storage: US General carts/cabinets, Husky tool chests, HF service cart</li>
+          <li>Steel and plastic shelving in common sizes</li>
+          <li>Custom objects with user-defined dimensions</li>
+          <li>Drag to move, rotate, delete, zoom, pan</li>
+          <li>Grid snapping and label toggles</li>
+          <li>Auto-save layout to browser storage</li>
+        </ul>
+      </div>
+    </div>
   </div>
   <script src="app.js"></script>
 </body>

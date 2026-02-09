@@ -478,6 +478,11 @@
     load();
     populateCatalog('vehicles');
 
+    const modal = document.getElementById('modal-overlay');
+    document.getElementById('btn-info').addEventListener('click', () => { modal.style.display = 'flex'; });
+    document.getElementById('btn-modal-close').addEventListener('click', () => { modal.style.display = 'none'; });
+    modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+
     document.getElementById('btn-update-room').addEventListener('click', updateRoom);
     document.getElementById('btn-rotate').addEventListener('click', rotateSelected);
     document.getElementById('btn-delete').addEventListener('click', deleteSelected);

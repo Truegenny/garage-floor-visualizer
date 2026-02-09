@@ -24,14 +24,50 @@ body {
   flex-direction: column;
 }
 
-#sidebar h1 {
-  padding: 14px 16px;
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 2px solid #0f3460;
+}
+
+.header-row h1 {
   font-size: 17px;
   font-weight: 700;
-  border-bottom: 2px solid #0f3460;
   color: #e94560;
   letter-spacing: 0.3px;
 }
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.version {
+  font-size: 10px;
+  color: #6b7280;
+}
+
+.info-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid #374151;
+  background: #1a1a2e;
+  color: #9ca3af;
+  font-size: 12px;
+  font-style: italic;
+  font-family: Georgia, serif;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.info-btn:hover { border-color: #e94560; color: #e94560; }
 
 .panel {
   padding: 10px 14px;
@@ -298,6 +334,77 @@ input[type="color"] {
 }
 
 .ctrl-label input { cursor: pointer; }
+
+/* ===== SCROLLBAR ===== */
+/* ===== MODAL ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal {
+  background: #16213e;
+  border: 1px solid #0f3460;
+  border-radius: 8px;
+  width: 420px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid #0f3460;
+}
+
+.modal-header h2 {
+  font-size: 15px;
+  color: #e94560;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.modal-close:hover { color: #fff; }
+
+.modal-body {
+  padding: 14px 16px;
+  overflow-y: auto;
+  font-size: 13px;
+  color: #d0d0d0;
+}
+
+.modal-body h3 {
+  font-size: 13px;
+  color: #e94560;
+  margin: 12px 0 6px;
+}
+
+.modal-body h3:first-child { margin-top: 0; }
+
+.modal-body ul {
+  list-style: disc;
+  padding-left: 18px;
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.modal-body li { margin-bottom: 3px; }
 
 /* ===== SCROLLBAR ===== */
 #sidebar::-webkit-scrollbar, .catalog-list::-webkit-scrollbar {
