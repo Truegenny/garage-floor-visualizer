@@ -550,9 +550,10 @@
     ctx.moveTo(dlX - tickLen, ry + rh); ctx.lineTo(dlX + tickLen, ry + rh);
     ctx.stroke();
 
-    // Objects (sorted by layer, then array order)
-    const sorted = [...objects].sort((a, b) => (a.layer || 1) - (b.layer || 1));
-    for (const obj of sorted) drawObject(obj);
+    // Objects (sorted by layer — higher layers draw on top)
+    const sorted = objects.map((obj, i) => ({ obj, i }))
+      .sort((a, b) => (a.obj.layer || 1) - (b.obj.layer || 1) || a.i - b.i);
+    for (const { obj } of sorted) drawObject(obj);
 
     // Selection highlight
     if (selected) {
@@ -779,8 +780,9 @@
   // ===== HIT TEST =====
   function hitTest(wx, wy) {
     // Check from highest layer down, then last-added first within same layer
-    const sorted = [...objects].sort((a, b) => (b.layer || 1) - (a.layer || 1));
-    for (const o of sorted) {
+    const sorted = objects.map((o, i) => ({ o, i }))
+      .sort((a, b) => (b.o.layer || 1) - (a.o.layer || 1) || b.i - a.i);
+    for (const { o } of sorted) {
       const d = eff(o);
       if (wx >= o.x && wx <= o.x + d.w && wy >= o.y && wy <= o.y + d.h) return o;
     }
@@ -1046,6 +1048,15 @@
 
     document.getElementById('chk-snap').addEventListener('change', e => { snapEnabled = e.target.checked; });
     document.getElementById('chk-labels').addEventListener('change', e => { showLabels = e.target.checked; render(); });
+
+    // Layer input — apply immediately on change
+    document.getElementById('edit-layer').addEventListener('input', () => {
+      const obj = objects.find(o => o.id === selected);
+      if (!obj) return;
+      obj.layer = Math.max(1, parseInt(document.getElementById('edit-layer').value) || 1);
+      save();
+      render();
+    });
 
     document.getElementById('btn-add-custom').addEventListener('click', () => {
       const name = document.getElementById('custom-name').value.trim() || 'Custom Object';
