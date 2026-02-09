@@ -228,7 +228,7 @@
       if (!plan) return;
       const d = JSON.parse(plan.data);
       room = d.room || room;
-      objects = d.objects || [];
+      objects = (d.objects || []).map(o => ({ ...o, layer: o.layer || 1 }));
       nextId = d.nextId || 1;
       selected = null;
       currentPlanId = plan.id;
@@ -802,9 +802,6 @@
       if (obj) {
         selected = obj.id;
         dragging = { type: 'obj', id: obj.id, sx: wx, sy: wy, ox: obj.x, oy: obj.y };
-        const idx = objects.indexOf(obj);
-        objects.splice(idx, 1);
-        objects.push(obj);
       } else {
         selected = null;
         dragging = { type: 'pan', scx: p.cx, scy: p.cy, opx: pan.x, opy: pan.y };
@@ -971,7 +968,7 @@
       const d = JSON.parse(localStorage.getItem('garageLayout'));
       if (d) {
         room = d.room || room;
-        objects = d.objects || [];
+        objects = (d.objects || []).map(o => ({ ...o, layer: o.layer || 1 }));
         nextId = d.nextId || 1;
         document.getElementById('room-w-ft').value = Math.floor(room.w / 12);
         document.getElementById('room-w-in').value = Math.round(room.w % 12);
