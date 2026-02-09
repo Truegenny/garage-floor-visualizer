@@ -142,25 +142,12 @@
   }
 
   // ===== AUTH FUNCTIONS =====
-  async function login(email, password) {
+  async function login(username, password) {
     const data = await apiFetch('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ username, password }),
     });
     if (!data) throw new Error('Login failed');
-    authToken = data.token;
-    currentUser = data.user;
-    localStorage.setItem('authToken', authToken);
-    onAuthChange();
-    return data;
-  }
-
-  async function register(email, password) {
-    const data = await apiFetch('/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
-    if (!data) throw new Error('Registration failed');
     authToken = data.token;
     currentUser = data.user;
     localStorage.setItem('authToken', authToken);
@@ -295,17 +282,85 @@
     }, 2000);
   }
 
+  // ===== ADMIN FUNCTIONS =====
+  async function loadUsers() {
+    if (!authToken || !currentUser?.is_admin) return;
+    try {
+      const users = await apiFetch('/api/auth/users');
+      if (!users) return;
+      const list = document.getElementById('admin-user-list');
+      list.innerHTML = '';
+      for (const u of users) {
+        const div = document.createElement('div');
+        div.className = 'admin-user-item';
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'admin-user-name';
+        nameSpan.textContent = u.username;
+        if (u.is_admin) {
+          const badge = document.createElement('span');
+          badge.className = 'admin-tag';
+          badge.textContent = 'ADMIN';
+          nameSpan.appendChild(badge);
+        }
+        const dateSpan = document.createElement('span');
+        dateSpan.className = 'admin-user-date';
+        const d = new Date(u.created_at + 'Z');
+        dateSpan.textContent = d.toLocaleDateString();
+        div.appendChild(nameSpan);
+        div.appendChild(dateSpan);
+        if (u.id !== currentUser.id) {
+          const delBtn = document.createElement('button');
+          delBtn.className = 'plan-btn danger';
+          delBtn.textContent = 'Del';
+          delBtn.addEventListener('click', () => deleteUser(u.id, u.username));
+          div.appendChild(delBtn);
+        }
+        list.appendChild(div);
+      }
+    } catch (e) { console.error('Failed to load users:', e); }
+  }
+
+  async function createUser(username, password) {
+    if (!authToken) return;
+    await apiFetch('/api/auth/users', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    });
+    await loadUsers();
+  }
+
+  async function deleteUser(id, username) {
+    if (!confirm(`Delete user "${username}"? This will also delete all their saved plans.`)) return;
+    try {
+      await apiFetch(`/api/auth/users/${id}`, { method: 'DELETE' });
+      await loadUsers();
+    } catch (e) { alert('Error: ' + e.message); }
+  }
+
   // ===== UI: AUTH STATE CHANGE =====
   function onAuthChange() {
     const userBar = document.getElementById('user-bar');
     const loginBar = document.getElementById('login-bar');
     const plansPanel = document.getElementById('plans-panel');
+    const adminPanel = document.getElementById('admin-panel');
 
     if (currentUser) {
       userBar.style.display = 'flex';
       loginBar.style.display = 'none';
       plansPanel.style.display = 'block';
-      document.getElementById('user-email').textContent = currentUser.email;
+      const display = document.getElementById('user-display');
+      display.innerHTML = '';
+      display.textContent = currentUser.username;
+      if (currentUser.is_admin) {
+        const badge = document.createElement('span');
+        badge.className = 'admin-badge';
+        badge.textContent = 'ADMIN';
+        display.appendChild(badge);
+        adminPanel.style.display = 'block';
+        loadUsers();
+      } else {
+        adminPanel.style.display = 'none';
+      }
       loadPlansList().then(async () => {
         // On first login with localStorage data but no server plans, offer import
         if (plansList.length === 0 && objects.length > 0) {
@@ -326,6 +381,7 @@
       userBar.style.display = 'none';
       loginBar.style.display = 'block';
       plansPanel.style.display = 'none';
+      adminPanel.style.display = 'none';
       currentPlanId = null;
       renderPlansList();
     }
@@ -383,25 +439,12 @@
   function setupAuthModal() {
     const modal = document.getElementById('auth-modal');
     const form = document.getElementById('auth-form');
-    const title = document.getElementById('auth-modal-title');
     const submitBtn = document.getElementById('btn-auth-submit');
-    const toggleText = document.getElementById('auth-toggle-text');
-    const toggleLink = document.getElementById('auth-toggle-link');
     const errorEl = document.getElementById('auth-error');
-    let isLogin = true;
-
-    function setMode(loginMode) {
-      isLogin = loginMode;
-      title.textContent = isLogin ? 'Login' : 'Register';
-      submitBtn.textContent = isLogin ? 'Login' : 'Register';
-      toggleText.textContent = isLogin ? "Don't have an account?" : 'Already have an account?';
-      toggleLink.textContent = isLogin ? 'Register' : 'Login';
-      errorEl.style.display = 'none';
-    }
 
     document.getElementById('btn-show-auth').addEventListener('click', () => {
-      setMode(true);
       form.reset();
+      errorEl.style.display = 'none';
       modal.style.display = 'flex';
     });
 
@@ -413,23 +456,14 @@
       if (e.target === modal) modal.style.display = 'none';
     });
 
-    toggleLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      setMode(!isLogin);
-    });
-
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const email = document.getElementById('auth-email').value.trim();
+      const username = document.getElementById('auth-username').value.trim();
       const password = document.getElementById('auth-password').value;
       errorEl.style.display = 'none';
       submitBtn.disabled = true;
       try {
-        if (isLogin) {
-          await login(email, password);
-        } else {
-          await register(email, password);
-        }
+        await login(username, password);
         modal.style.display = 'none';
         form.reset();
       } catch (err) {
@@ -975,6 +1009,19 @@
 
     // Logout button
     document.getElementById('btn-logout').addEventListener('click', logout);
+
+    // Admin: add user button
+    document.getElementById('btn-admin-add-user').addEventListener('click', async () => {
+      const username = document.getElementById('admin-new-username').value.trim();
+      const password = document.getElementById('admin-new-password').value;
+      if (!username || !password) { alert('Username and password are required'); return; }
+      if (password.length < 6) { alert('Password must be at least 6 characters'); return; }
+      try {
+        await createUser(username, password);
+        document.getElementById('admin-new-username').value = '';
+        document.getElementById('admin-new-password').value = '';
+      } catch (e) { alert('Error: ' + e.message); }
+    });
 
     // Plans buttons
     document.getElementById('btn-save-plan').addEventListener('click', savePlan);

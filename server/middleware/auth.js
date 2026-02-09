@@ -10,7 +10,8 @@ function auth(req, res, next) {
   try {
     const payload = jwt.verify(header.slice(7), JWT_SECRET);
     req.userId = payload.id;
-    req.userEmail = payload.email;
+    req.userUsername = payload.username;
+    req.isAdmin = payload.is_admin;
     next();
   } catch {
     return res.status(401).json({ error: 'Invalid or expired token' });

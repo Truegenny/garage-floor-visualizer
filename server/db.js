@@ -1,5 +1,5 @@
 const Database = require('better-sqlite3');
-const path = require('path');
+const bcrypt = require('bcryptjs');
 
 const DB_PATH = process.env.DB_PATH || '/data/garage.db';
 const db = new Database(DB_PATH);
@@ -10,8 +10,9 @@ db.pragma('foreign_keys = ON');
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
-    email TEXT UNIQUE NOT NULL,
+    username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
+    is_admin INTEGER DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
@@ -27,9 +28,13 @@ db.exec(`
 `);
 
 const stmts = {
-  findUserByEmail: db.prepare('SELECT * FROM users WHERE email = ?'),
-  findUserById: db.prepare('SELECT id, email, created_at FROM users WHERE id = ?'),
-  createUser: db.prepare('INSERT INTO users (id, email, password) VALUES (?, ?, ?)'),
+  findUserByUsername: db.prepare('SELECT * FROM users WHERE username = ?'),
+  findUserById: db.prepare('SELECT id, username, is_admin, created_at FROM users WHERE id = ?'),
+  createUser: db.prepare('INSERT INTO users (id, username, password, is_admin) VALUES (?, ?, ?, ?)'),
+  countUsers: db.prepare('SELECT COUNT(*) as count FROM users'),
+  listAllUsers: db.prepare('SELECT id, username, is_admin, created_at FROM users ORDER BY created_at ASC'),
+  deleteUser: db.prepare('DELETE FROM users WHERE id = ?'),
+  deletePlansByUser: db.prepare('DELETE FROM floor_plans WHERE user_id = ?'),
 
   listPlans: db.prepare(
     'SELECT id, name, updated_at FROM floor_plans WHERE user_id = ? ORDER BY updated_at DESC'
@@ -44,5 +49,17 @@ const stmts = {
   ),
   deletePlan: db.prepare('DELETE FROM floor_plans WHERE id = ? AND user_id = ?'),
 };
+
+// Seed admin user if no users exist
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'changeme';
+
+const { count } = stmts.countUsers.get();
+if (count === 0) {
+  const { v4: uuidv4 } = require('uuid');
+  const hash = bcrypt.hashSync(ADMIN_PASSWORD, 10);
+  stmts.createUser.run(uuidv4(), ADMIN_USERNAME, hash, 1);
+  console.log(`Admin user created (username: ${ADMIN_USERNAME})`);
+}
 
 module.exports = { db, stmts };
