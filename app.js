@@ -7,9 +7,9 @@
       category: 'Vehicles',
       id: 'vehicles',
       items: [
-        { name: '2021 Honda Passport',  w: 78.6, h: 190.5, color: '#3b82f6' },
-        { name: '2023 KTM Duke 890 R',  w: 32.7, h: 82.5,  color: '#ef4444' },
-        { name: '2021 Honda Grom',       w: 28.3, h: 69.1,  color: '#f97316' },
+        { name: '2021 Honda Passport',  w: 78.6, h: 190.5, color: '#3b82f6', type: 'car' },
+        { name: '2023 KTM Duke 890 R',  w: 32.7, h: 82.5,  color: '#ef4444', type: 'moto' },
+        { name: '2021 Honda Grom',       w: 28.3, h: 69.1,  color: '#f97316', type: 'moto' },
       ]
     },
     {
@@ -106,6 +106,17 @@
 
   function snap(v) { return snapEnabled ? Math.round(v) : v; }
 
+  function rrect(x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
   // ===== COORDINATE TRANSFORMS =====
   function w2cx(wx) { return (wx - pan.x) * scale + canvas.width / 2; }
   function w2cy(wy) { return (wy - pan.y) * scale + canvas.height / 2; }
@@ -139,81 +150,226 @@
       ctx.beginPath(); ctx.moveTo(rx, cy); ctx.lineTo(rx + rw, cy); ctx.stroke();
     }
 
-    // Room walls
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 3;
+    // Room walls — thick with depth
+    const wallPx = Math.max(4, 4 * scale);
+    ctx.strokeStyle = '#555';
+    ctx.lineWidth = wallPx;
     ctx.strokeRect(rx, ry, rw, rh);
+    ctx.strokeStyle = '#888';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(rx + wallPx / 2, ry + wallPx / 2, rw - wallPx, rh - wallPx);
 
     // Room dimensions
+    const dimOffset = wallPx / 2 + 14;
     ctx.fillStyle = '#ccc';
-    ctx.font = '13px sans-serif';
+    ctx.font = 'bold 13px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.fillText(fmt(room.w), rx + rw / 2, ry - 6);
+    ctx.fillText(fmt(room.w), rx + rw / 2, ry - dimOffset);
     ctx.save();
-    ctx.translate(rx - 8, ry + rh / 2);
+    ctx.translate(rx - dimOffset, ry + rh / 2);
     ctx.rotate(-Math.PI / 2);
     ctx.textBaseline = 'bottom';
     ctx.fillText(fmt(room.h), 0, 0);
     ctx.restore();
 
+    // Dimension lines
+    ctx.strokeStyle = '#999';
+    ctx.lineWidth = 1;
+    const tickLen = 6;
+    // Top width line
+    const dlY = ry - dimOffset + 4;
+    ctx.beginPath();
+    ctx.moveTo(rx, dlY); ctx.lineTo(rx + rw, dlY);
+    ctx.moveTo(rx, dlY - tickLen); ctx.lineTo(rx, dlY + tickLen);
+    ctx.moveTo(rx + rw, dlY - tickLen); ctx.lineTo(rx + rw, dlY + tickLen);
+    ctx.stroke();
+    // Left depth line
+    const dlX = rx - dimOffset + 4;
+    ctx.beginPath();
+    ctx.moveTo(dlX, ry); ctx.lineTo(dlX, ry + rh);
+    ctx.moveTo(dlX - tickLen, ry); ctx.lineTo(dlX + tickLen, ry);
+    ctx.moveTo(dlX - tickLen, ry + rh); ctx.lineTo(dlX + tickLen, ry + rh);
+    ctx.stroke();
+
     // Objects
-    for (const obj of objects) {
-      const d = eff(obj);
-      const ox = w2cx(obj.x), oy = w2cy(obj.y);
-      const ow = d.w * scale, oh = d.h * scale;
-
-      ctx.fillStyle = obj.color + 'bb';
-      ctx.fillRect(ox, oy, ow, oh);
-      ctx.strokeStyle = obj.color;
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(ox, oy, ow, oh);
-
-      // Direction indicator (small triangle at "front" / top)
-      ctx.fillStyle = obj.color;
-      const triSize = Math.min(6, ow * 0.15, oh * 0.15);
-      const triCx = ox + ow / 2;
-      ctx.beginPath();
-      ctx.moveTo(triCx - triSize, oy + triSize * 2);
-      ctx.lineTo(triCx + triSize, oy + triSize * 2);
-      ctx.lineTo(triCx, oy + 2);
-      ctx.fill();
-
-      if (showLabels && scale > 1) {
-        const maxFont = 13, minFont = 8;
-        let fs = Math.min(maxFont, ow / (obj.name.length * 0.55));
-        fs = Math.max(minFont, fs);
-        if (fs * scale < 6) continue;
-
-        const tcx = ox + ow / 2, tcy = oy + oh / 2;
-
-        ctx.font = `600 ${fs}px sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#000';
-        ctx.fillText(obj.name, tcx, tcy - fs * 0.55, ow - 6);
-
-        const dimTxt = `${fmt(obj.w)} x ${fmt(obj.h)}`;
-        ctx.font = `${Math.max(7, fs - 2)}px sans-serif`;
-        ctx.fillStyle = '#444';
-        ctx.fillText(dimTxt, tcx, tcy + fs * 0.55, ow - 6);
-      }
-    }
+    for (const obj of objects) drawObject(obj);
 
     // Selection highlight
     if (selected) {
       const obj = objects.find(o => o.id === selected);
       if (obj) {
         const d = eff(obj);
-        const ox = w2cx(obj.x) - 2, oy = w2cy(obj.y) - 2;
-        const ow = d.w * scale + 4, oh = d.h * scale + 4;
+        const ox = w2cx(obj.x) - 3, oy = w2cy(obj.y) - 3;
+        const ow = d.w * scale + 6, oh = d.h * scale + 6;
+        rrect(ox, oy, ow, oh, 6);
         ctx.strokeStyle = '#00ff88';
         ctx.lineWidth = 2.5;
         ctx.setLineDash([6, 3]);
-        ctx.strokeRect(ox, oy, ow, oh);
+        ctx.stroke();
         ctx.setLineDash([]);
       }
     }
+  }
+
+  // ===== OBJECT DRAWING =====
+  function drawObject(obj) {
+    const d = eff(obj);
+    const ox = w2cx(obj.x), oy = w2cy(obj.y);
+    const ow = d.w * scale, oh = d.h * scale;
+    const r = Math.min(4 * scale / 3, ow * 0.06, oh * 0.06);
+
+    // Shadow
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.35)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 2;
+    rrect(ox, oy, ow, oh, r);
+    ctx.fillStyle = obj.color + 'cc';
+    ctx.fill();
+    ctx.restore();
+
+    // Border
+    rrect(ox, oy, ow, oh, r);
+    ctx.strokeStyle = obj.color;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Inner highlight (top-left edge glow)
+    ctx.save();
+    ctx.clip();
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 2;
+    rrect(ox + 1, oy + 1, ow - 2, oh - 2, r);
+    ctx.stroke();
+    ctx.restore();
+
+    // Type-specific details
+    if (obj.type === 'car') drawCarDetail(ox, oy, ow, oh);
+    else if (obj.type === 'moto') drawMotoDetail(ox, oy, ow, oh);
+
+    // Direction indicator
+    ctx.fillStyle = obj.color;
+    const tri = Math.min(5, ow * 0.12, oh * 0.07);
+    if (tri > 2) {
+      const tcx = ox + ow / 2;
+      ctx.beginPath();
+      ctx.moveTo(tcx - tri, oy + tri * 2.5);
+      ctx.lineTo(tcx + tri, oy + tri * 2.5);
+      ctx.lineTo(tcx, oy + 3);
+      ctx.fill();
+    }
+
+    // Labels
+    if (showLabels && scale > 1) {
+      let fs = Math.min(13, ow / (obj.name.length * 0.55));
+      fs = Math.max(8, fs);
+      if (fs < 6) return;
+      const tcx = ox + ow / 2, tcy = oy + oh / 2;
+
+      // Text shadow for readability
+      ctx.font = `600 ${fs}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.fillText(obj.name, tcx + 0.5, tcy - fs * 0.5 + 0.5, ow - 8);
+      ctx.fillStyle = '#000';
+      ctx.fillText(obj.name, tcx, tcy - fs * 0.5, ow - 8);
+
+      const dimTxt = `${fmt(obj.w)} x ${fmt(obj.h)}`;
+      ctx.font = `${Math.max(7, fs - 2)}px sans-serif`;
+      ctx.fillStyle = '#444';
+      ctx.fillText(dimTxt, tcx, tcy + fs * 0.6, ow - 8);
+    }
+  }
+
+  function drawCarDetail(ox, oy, ow, oh) {
+    const wi = Math.max(2, ow * 0.08);  // wheel width
+    const wl = Math.max(3, oh * 0.07);  // wheel length
+    const pad = Math.max(2, ow * 0.07);
+
+    // Wheels (dark rounded rects at corners)
+    ctx.fillStyle = '#1a1a1a';
+    for (const [wx, wy] of [
+      [ox + pad, oy + pad],
+      [ox + ow - pad - wi, oy + pad],
+      [ox + pad, oy + oh - pad - wl],
+      [ox + ow - pad - wi, oy + oh - pad - wl],
+    ]) {
+      rrect(wx, wy, wi, wl, 1);
+      ctx.fill();
+    }
+
+    // Windshield
+    const wsY = oy + oh * 0.28;
+    const wsIn = ow * 0.18;
+    ctx.strokeStyle = 'rgba(140,200,255,0.5)';
+    ctx.lineWidth = Math.max(1.2, scale * 0.4);
+    ctx.beginPath();
+    ctx.moveTo(ox + wsIn, wsY);
+    ctx.quadraticCurveTo(ox + ow / 2, wsY - oh * 0.025, ox + ow - wsIn, wsY);
+    ctx.stroke();
+
+    // Rear window
+    const rwY = oy + oh * 0.78;
+    ctx.beginPath();
+    ctx.moveTo(ox + wsIn * 1.3, rwY);
+    ctx.quadraticCurveTo(ox + ow / 2, rwY + oh * 0.02, ox + ow - wsIn * 1.3, rwY);
+    ctx.stroke();
+
+    // Roof line
+    ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+    ctx.lineWidth = Math.max(1, scale * 0.3);
+    rrect(ox + ow * 0.2, oy + oh * 0.3, ow * 0.6, oh * 0.4, 3);
+    ctx.stroke();
+  }
+
+  function drawMotoDetail(ox, oy, ow, oh) {
+    const wr = Math.max(2, Math.min(ow * 0.22, oh * 0.05));
+
+    // Front wheel
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(ox + ow / 2, oy + wr + 3, wr, 0, Math.PI * 2);
+    ctx.fill();
+    // Rear wheel
+    ctx.beginPath();
+    ctx.arc(ox + ow / 2, oy + oh - wr - 3, wr, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Handlebar
+    const hbY = oy + oh * 0.16;
+    const hbW = ow * 0.85;
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = Math.max(2, scale * 0.5);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(ox + (ow - hbW) / 2, hbY);
+    ctx.lineTo(ox + (ow + hbW) / 2, hbY);
+    ctx.stroke();
+    ctx.lineCap = 'butt';
+
+    // Frame center line
+    ctx.strokeStyle = 'rgba(80,80,80,0.35)';
+    ctx.lineWidth = Math.max(1, scale * 0.25);
+    ctx.beginPath();
+    ctx.moveTo(ox + ow / 2, oy + oh * 0.22);
+    ctx.lineTo(ox + ow / 2, oy + oh * 0.78);
+    ctx.stroke();
+  }
+
+  // ===== EXPORT =====
+  function exportPNG() {
+    const prev = selected;
+    selected = null;
+    render();
+    const link = document.createElement('a');
+    link.download = 'garage-layout.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    selected = prev;
+    render();
   }
 
   // ===== OBJECT MANAGEMENT =====
@@ -224,6 +380,7 @@
       w: tmpl.w,
       h: tmpl.h,
       color: tmpl.color,
+      type: tmpl.type || null,
       x: snap(pan.x - tmpl.w / 2),
       y: snap(pan.y - tmpl.h / 2),
       rotation: 0,
@@ -495,6 +652,7 @@
       scale = Math.max(0.3, scale / 1.25); render();
     });
     document.getElementById('btn-fit').addEventListener('click', fitView);
+    document.getElementById('btn-export').addEventListener('click', exportPNG);
 
     document.getElementById('chk-snap').addEventListener('change', e => { snapEnabled = e.target.checked; });
     document.getElementById('chk-labels').addEventListener('change', e => { showLabels = e.target.checked; render(); });
