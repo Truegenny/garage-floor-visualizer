@@ -550,8 +550,9 @@
     ctx.moveTo(dlX - tickLen, ry + rh); ctx.lineTo(dlX + tickLen, ry + rh);
     ctx.stroke();
 
-    // Objects
-    for (const obj of objects) drawObject(obj);
+    // Objects (sorted by layer, then array order)
+    const sorted = [...objects].sort((a, b) => (a.layer || 0) - (b.layer || 0));
+    for (const obj of sorted) drawObject(obj);
 
     // Selection highlight
     if (selected) {
@@ -742,6 +743,7 @@
       x: snap(pan.x - tmpl.w / 2),
       y: snap(pan.y - tmpl.h / 2),
       rotation: 0,
+      layer: 0,
     };
     objects.push(obj);
     selected = obj.id;
@@ -754,6 +756,15 @@
     if (!selected) return;
     objects = objects.filter(o => o.id !== selected);
     selected = null;
+    updateSelected();
+    save();
+    render();
+  }
+
+  function changeLayer(delta) {
+    const obj = objects.find(o => o.id === selected);
+    if (!obj) return;
+    obj.layer = (obj.layer || 0) + delta;
     updateSelected();
     save();
     render();
@@ -776,8 +787,10 @@
 
   // ===== HIT TEST =====
   function hitTest(wx, wy) {
-    for (let i = objects.length - 1; i >= 0; i--) {
-      const o = objects[i], d = eff(o);
+    // Check from highest layer down, then last-added first within same layer
+    const sorted = [...objects].sort((a, b) => (b.layer || 0) - (a.layer || 0));
+    for (const o of sorted) {
+      const d = eff(o);
       if (wx >= o.x && wx <= o.x + d.w && wy >= o.y && wy <= o.y + d.h) return o;
     }
     return null;
@@ -913,6 +926,7 @@
     document.getElementById('edit-d-in').value = Math.round(obj.h % 12);
     document.getElementById('edit-color').value = obj.color;
     document.getElementById('sel-rotation').textContent = `Rotated ${obj.rotation}\u00b0`;
+    document.getElementById('sel-layer').textContent = `Layer: ${obj.layer || 0}`;
   }
 
   function applyEdit() {
@@ -1030,6 +1044,8 @@
     document.getElementById('btn-update-room').addEventListener('click', updateRoom);
     document.getElementById('btn-rotate').addEventListener('click', rotateSelected);
     document.getElementById('btn-delete').addEventListener('click', deleteSelected);
+    document.getElementById('btn-layer-up').addEventListener('click', () => changeLayer(1));
+    document.getElementById('btn-layer-down').addEventListener('click', () => changeLayer(-1));
     document.getElementById('btn-apply-edit').addEventListener('click', applyEdit);
 
     document.getElementById('btn-zoom-in').addEventListener('click', () => {
