@@ -1,6 +1,6 @@
 services:
   garage-visualizer:
-    build: .
+    image: ghcr.io/truegenny/garage-floor-visualizer:latest
     container_name: garage-floor-visualizer
     ports:
       - "3085:80"
