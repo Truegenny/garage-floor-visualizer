@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Garage Floor Visualizer</title>
-  <link rel="stylesheet" href="style.css?v=1.6.0">
+  <link rel="stylesheet" href="style.css?v=1.7.0">
 </head>
 <body>
   <div id="app">
@@ -12,7 +12,7 @@
       <div class="header-row">
         <h1>Garage Floor Planner</h1>
         <div class="header-right">
-          <span class="version">v1.6.0</span>
+          <span class="version">v1.7.0</span>
           <button id="btn-info" class="info-btn" title="Changelog">i</button>
         </div>
       </div>
@@ -139,6 +139,7 @@
 
     <main id="canvas-container">
       <canvas id="canvas"></canvas>
+      <button id="theme-toggle" title="Toggle light/dark theme">&#9790;</button>
       <div id="controls">
         <button id="btn-zoom-in" class="ctrl-btn">+</button>
         <button id="btn-zoom-out" class="ctrl-btn">&minus;</button>
@@ -155,10 +156,22 @@
   <div id="modal-overlay" class="modal-overlay" style="display:none">
     <div class="modal">
       <div class="modal-header">
-        <h2>Garage Floor Planner <span class="version">v1.6.0</span></h2>
+        <h2>Garage Floor Planner <span class="version">v1.7.0</span></h2>
         <button id="btn-modal-close" class="modal-close">&times;</button>
       </div>
       <div class="modal-body">
+        <h3>v1.7.0</h3>
+        <ul>
+          <li>Light theme: toggle between dark and light mode with the button at the bottom-left of the canvas</li>
+          <li>Theme preference saved to browser storage</li>
+          <li>Canvas rendering adapts to selected theme</li>
+        </ul>
+        <h3>v1.6.1</h3>
+        <ul>
+          <li>Fixed zoom bug: trackpad/touchpad scrolling no longer breaks the app</li>
+          <li>Added protection against NaN/Infinity state corruption</li>
+          <li>Prevented browser pinch-to-zoom from interfering with canvas</li>
+        </ul>
         <h3>v1.6.0</h3>
         <ul>
           <li>Object layering: stack objects on top of each other with configurable layer numbers</li>
@@ -241,6 +254,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=1.6.0"></script>
+  <script src="app.js?v=1.7.0"></script>
 </body>
 </html>

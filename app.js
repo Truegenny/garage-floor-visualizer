@@ -84,6 +84,37 @@
   let showLabels = true;
   let activeCategory = 'vehicles';
   let dragging = null;
+  let darkMode = localStorage.getItem('garageTheme') !== 'light';
+
+  // ===== THEME COLORS (canvas) =====
+  const themes = {
+    dark: {
+      canvasBg: '#1a1a2e',
+      floor: '#e8e4df',
+      grid: '#d0ccc7',
+      wallOuter: '#555',
+      wallInner: '#888',
+      dimText: '#ccc',
+      dimLine: '#999',
+      labelText: '#000',
+      labelShadow: 'rgba(255,255,255,0.6)',
+      dimSubText: '#444',
+    },
+    light: {
+      canvasBg: '#e8eaed',
+      floor: '#f5f3f0',
+      grid: '#ddd8d3',
+      wallOuter: '#666',
+      wallInner: '#999',
+      dimText: '#444',
+      dimLine: '#888',
+      labelText: '#000',
+      labelShadow: 'rgba(255,255,255,0.7)',
+      dimSubText: '#555',
+    },
+  };
+
+  function themeColors() { return darkMode ? themes.dark : themes.light; }
 
   // ===== AUTH / PLAN STATE =====
   let authToken = localStorage.getItem('authToken') || null;
@@ -484,20 +515,21 @@
   // ===== RENDERING =====
   function render() {
     const W = canvas.width, H = canvas.height;
+    const tc = themeColors();
     ctx.clearRect(0, 0, W, H);
 
     // Background
-    ctx.fillStyle = '#1a1a2e';
+    ctx.fillStyle = tc.canvasBg;
     ctx.fillRect(0, 0, W, H);
 
     // Room floor
     const rx = w2cx(0), ry = w2cy(0);
     const rw = room.w * scale, rh = room.h * scale;
-    ctx.fillStyle = '#e8e4df';
+    ctx.fillStyle = tc.floor;
     ctx.fillRect(rx, ry, rw, rh);
 
     // Grid
-    ctx.strokeStyle = '#d0ccc7';
+    ctx.strokeStyle = tc.grid;
     ctx.lineWidth = 0.5;
     for (let x = 0; x <= room.w; x += 12) {
       const cx = w2cx(x);
@@ -510,16 +542,16 @@
 
     // Room walls — thick with depth
     const wallPx = Math.max(4, 4 * scale);
-    ctx.strokeStyle = '#555';
+    ctx.strokeStyle = tc.wallOuter;
     ctx.lineWidth = wallPx;
     ctx.strokeRect(rx, ry, rw, rh);
-    ctx.strokeStyle = '#888';
+    ctx.strokeStyle = tc.wallInner;
     ctx.lineWidth = 1;
     ctx.strokeRect(rx + wallPx / 2, ry + wallPx / 2, rw - wallPx, rh - wallPx);
 
     // Room dimensions
     const dimOffset = wallPx / 2 + 14;
-    ctx.fillStyle = '#ccc';
+    ctx.fillStyle = tc.dimText;
     ctx.font = 'bold 13px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
@@ -532,7 +564,7 @@
     ctx.restore();
 
     // Dimension lines
-    ctx.strokeStyle = '#999';
+    ctx.strokeStyle = tc.dimLine;
     ctx.lineWidth = 1;
     const tickLen = 6;
     // Top width line
@@ -629,17 +661,18 @@
       const tcx = ox + ow / 2, tcy = oy + oh / 2;
 
       // Text shadow for readability
+      const tc = themeColors();
       ctx.font = `600 ${fs}px sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.fillStyle = tc.labelShadow;
       ctx.fillText(obj.name, tcx + 0.5, tcy - fs * 0.5 + 0.5, ow - 8);
-      ctx.fillStyle = '#000';
+      ctx.fillStyle = tc.labelText;
       ctx.fillText(obj.name, tcx, tcy - fs * 0.5, ow - 8);
 
       const dimTxt = `${fmt(obj.w)} x ${fmt(obj.h)}`;
       ctx.font = `${Math.max(7, fs - 2)}px sans-serif`;
-      ctx.fillStyle = '#444';
+      ctx.fillStyle = tc.dimSubText;
       ctx.fillText(dimTxt, tcx, tcy + fs * 0.6, ow - 8);
     }
   }
@@ -730,6 +763,20 @@
     link.click();
     selected = prev;
     render();
+  }
+
+  // ===== THEME TOGGLE =====
+  function applyTheme() {
+    document.body.classList.toggle('light', !darkMode);
+    const btn = document.getElementById('theme-toggle');
+    if (btn) btn.innerHTML = darkMode ? '&#9790;' : '&#9728;';
+    render();
+  }
+
+  function toggleTheme() {
+    darkMode = !darkMode;
+    localStorage.setItem('garageTheme', darkMode ? 'dark' : 'light');
+    applyTheme();
   }
 
   // ===== OBJECT MANAGEMENT =====
@@ -839,12 +886,40 @@
 
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
+
+    // Ignore events with no vertical delta (horizontal scroll, gesture artifacts)
+    if (e.deltaY === 0) return;
+
+    // Validate current state - reset if corrupted
+    if (!isFinite(pan.x) || !isFinite(pan.y) || !isFinite(scale)) {
+      scale = 3;
+      pan.x = room.w / 2;
+      pan.y = room.h / 2;
+      render();
+      return;
+    }
+
     const p = mpos(e);
     const wx = c2wx(p.cx), wy = c2wy(p.cy);
+
+    // Validate world coordinates
+    if (!isFinite(wx) || !isFinite(wy)) {
+      return;
+    }
+
     const f = e.deltaY > 0 ? 0.9 : 1.1;
-    scale = Math.max(0.3, Math.min(25, scale * f));
-    pan.x = wx - (p.cx - canvas.width / 2) / scale;
-    pan.y = wy - (p.cy - canvas.height / 2) / scale;
+    scale = Math.max(0.5, Math.min(20, scale * f));
+
+    const newPanX = wx - (p.cx - canvas.width / 2) / scale;
+    const newPanY = wy - (p.cy - canvas.height / 2) / scale;
+
+    // Only update pan if new values are valid and within reasonable bounds
+    if (isFinite(newPanX) && isFinite(newPanY)) {
+      const maxPan = Math.max(room.w, room.h) * 2;
+      pan.x = Math.max(-maxPan, Math.min(maxPan, newPanX));
+      pan.y = Math.max(-maxPan, Math.min(maxPan, newPanY));
+    }
+
     render();
   }, { passive: false });
 
@@ -1003,6 +1078,10 @@
     load();
     populateCatalog('vehicles');
 
+    // Theme toggle
+    document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+    applyTheme();
+
     // Changelog modal
     const modal = document.getElementById('modal-overlay');
     document.getElementById('btn-info').addEventListener('click', () => { modal.style.display = 'flex'; });
@@ -1038,10 +1117,10 @@
     document.getElementById('btn-apply-edit').addEventListener('click', applyEdit);
 
     document.getElementById('btn-zoom-in').addEventListener('click', () => {
-      scale = Math.min(25, scale * 1.25); render();
+      scale = Math.min(20, scale * 1.25); render();
     });
     document.getElementById('btn-zoom-out').addEventListener('click', () => {
-      scale = Math.max(0.3, scale / 1.25); render();
+      scale = Math.max(0.5, scale / 1.25); render();
     });
     document.getElementById('btn-fit').addEventListener('click', fitView);
     document.getElementById('btn-export').addEventListener('click', exportPNG);
