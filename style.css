@@ -669,6 +669,24 @@ input[type="color"] {
 
 .ctrl-label input { cursor: pointer; }
 
+.rot-input {
+  width: 42px;
+  padding: 2px 4px;
+  font-size: 11px;
+  text-align: center;
+  background: var(--ctrl-btn-bg);
+  border: 1px solid var(--btn-border);
+  color: var(--ctrl-btn-text);
+  border-radius: 3px;
+  -moz-appearance: textfield;
+}
+
+.rot-input::-webkit-inner-spin-button,
+.rot-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 /* ===== THEME TOGGLE ===== */
 #theme-toggle {
   position: absolute;

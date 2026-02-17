@@ -111,6 +111,7 @@
   let activeCategory = 'vehicles';
   let dragging = null;
   let darkMode = localStorage.getItem('garageTheme') !== 'light';
+  let rotationStep = parseInt(localStorage.getItem('garageRotStep')) || 45;
 
   // ===== THEME COLORS (canvas) =====
   const themes = {
@@ -860,7 +861,7 @@
     const bb = boundingBox(obj);
     const cxBefore = obj.x + bb.w / 2;
     const cyBefore = obj.y + bb.h / 2;
-    obj.rotation = (obj.rotation + 45) % 360;
+    obj.rotation = (obj.rotation + rotationStep) % 360;
     const bb2 = boundingBox(obj);
     obj.x = snap(cxBefore - bb2.w / 2);
     obj.y = snap(cyBefore - bb2.h / 2);
@@ -1194,6 +1195,17 @@
 
     document.getElementById('chk-snap').addEventListener('change', e => { snapEnabled = e.target.checked; });
     document.getElementById('chk-labels').addEventListener('change', e => { showLabels = e.target.checked; render(); });
+
+    const rotStepInput = document.getElementById('rot-step');
+    const rotateBtn = document.getElementById('btn-rotate');
+    rotStepInput.value = rotationStep;
+    rotateBtn.textContent = `Rotate ${rotationStep}\u00b0`;
+    rotStepInput.addEventListener('input', () => {
+      const v = Math.max(1, Math.min(180, parseInt(rotStepInput.value) || 45));
+      rotationStep = v;
+      localStorage.setItem('garageRotStep', v);
+      rotateBtn.textContent = `Rotate ${v}\u00b0`;
+    });
 
     // Layer input — apply immediately on change
     document.getElementById('edit-layer').addEventListener('input', () => {
