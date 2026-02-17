@@ -56,6 +56,22 @@
         { name: 'Husky 52" Tool Chest',      w: 52,   h: 18,   color: '#2563eb' },
         { name: 'Husky 61" Tool Chest',      w: 61,   h: 24.5, color: '#2563eb' },
         { name: 'Husky 36" Wall Cabinet',    w: 36,   h: 12,   color: '#1d4ed8' },
+        { name: 'Milwaukee 46" Tool Chest', w: 46,   h: 22,   color: '#dc2626' },
+        { name: 'Milwaukee Packout Stack',  w: 22,   h: 18,   color: '#dc2626' },
+        { name: 'Craftsman 52" Tool Chest', w: 52,   h: 18,   color: '#1f2937' },
+        { name: 'Craftsman 41" Cart',       w: 41,   h: 18,   color: '#1f2937' },
+        { name: 'Snap-on 55" Classic',      w: 55,   h: 24,   color: '#1e40af' },
+      ]
+    },
+    {
+      category: 'Tires',
+      id: 'tires',
+      items: [
+        { name: 'Car Tire (single)',        w: 9,  h: 26,  color: '#374151' },
+        { name: 'Car Tire Stack (4)',       w: 26, h: 26,  color: '#374151' },
+        { name: 'Truck/SUV Tire (single)',  w: 12, h: 33,  color: '#374151' },
+        { name: 'Truck/SUV Tire Stack (4)', w: 33, h: 33,  color: '#374151' },
+        { name: 'Tire Rack',                w: 48, h: 18,  color: '#6b7280' },
       ]
     },
     {
@@ -69,6 +85,16 @@
         { name: 'Plastic Shelf 36"x18"', w: 36, h: 18, color: '#8b5cf6' },
         { name: 'Plastic Shelf 48"x20"', w: 48, h: 20, color: '#8b5cf6' },
         { name: 'Plastic Shelf 72"x24"', w: 72, h: 24, color: '#8b5cf6' },
+      ]
+    },
+    {
+      category: 'Bins & Totes',
+      id: 'bins',
+      items: [
+        { name: '27 Gal Yellow Tote (HDX)',  w: 30.5, h: 20.5, color: '#eab308' },
+        { name: '17 Gal Storage Tote',       w: 23.5, h: 16.5, color: '#6366f1' },
+        { name: '50 Gal Storage Tote',       w: 36.5, h: 21,   color: '#6366f1' },
+        { name: 'Sterilite Stacking Bin',    w: 16,   h: 12,   color: '#8b5cf6' },
       ]
     },
   ];
@@ -136,10 +162,14 @@
     return `${ft}'${inc}"`;
   }
 
-  function eff(obj) {
-    return obj.rotation % 180 === 0
-      ? { w: obj.w, h: obj.h }
-      : { w: obj.h, h: obj.w };
+  function boundingBox(obj) {
+    const rad = obj.rotation * Math.PI / 180;
+    const cosA = Math.abs(Math.cos(rad));
+    const sinA = Math.abs(Math.sin(rad));
+    return {
+      w: obj.w * cosA + obj.h * sinA,
+      h: obj.w * sinA + obj.h * cosA
+    };
   }
 
   function snap(v) { return snapEnabled ? Math.round(v) : v; }
@@ -591,25 +621,41 @@
     if (selected) {
       const obj = objects.find(o => o.id === selected);
       if (obj) {
-        const d = eff(obj);
-        const ox = w2cx(obj.x) - 3, oy = w2cy(obj.y) - 3;
-        const ow = d.w * scale + 6, oh = d.h * scale + 6;
-        rrect(ox, oy, ow, oh, 6);
+        const bb = boundingBox(obj);
+        const screenCX = w2cx(obj.x) + bb.w * scale / 2;
+        const screenCY = w2cy(obj.y) + bb.h * scale / 2;
+        const ow = obj.w * scale;
+        const oh = obj.h * scale;
+        const pad = 3;
+
+        ctx.save();
+        ctx.translate(screenCX, screenCY);
+        ctx.rotate(obj.rotation * Math.PI / 180);
+        rrect(-ow / 2 - pad, -oh / 2 - pad, ow + pad * 2, oh + pad * 2, 6);
         ctx.strokeStyle = '#00ff88';
         ctx.lineWidth = 2.5;
         ctx.setLineDash([6, 3]);
         ctx.stroke();
         ctx.setLineDash([]);
+        ctx.restore();
       }
     }
   }
 
   // ===== OBJECT DRAWING =====
   function drawObject(obj) {
-    const d = eff(obj);
-    const ox = w2cx(obj.x), oy = w2cy(obj.y);
-    const ow = d.w * scale, oh = d.h * scale;
+    const bb = boundingBox(obj);
+    const screenCX = w2cx(obj.x) + bb.w * scale / 2;
+    const screenCY = w2cy(obj.y) + bb.h * scale / 2;
+    const ow = obj.w * scale, oh = obj.h * scale;
     const r = Math.min(4 * scale / 3, ow * 0.06, oh * 0.06);
+    const rad = obj.rotation * Math.PI / 180;
+
+    ctx.save();
+    ctx.translate(screenCX, screenCY);
+    ctx.rotate(rad);
+
+    const ox = -ow / 2, oy = -oh / 2;
 
     // Shadow
     ctx.save();
@@ -645,11 +691,10 @@
     ctx.fillStyle = obj.color;
     const tri = Math.min(5, ow * 0.12, oh * 0.07);
     if (tri > 2) {
-      const tcx = ox + ow / 2;
       ctx.beginPath();
-      ctx.moveTo(tcx - tri, oy + tri * 2.5);
-      ctx.lineTo(tcx + tri, oy + tri * 2.5);
-      ctx.lineTo(tcx, oy + 3);
+      ctx.moveTo(-tri, oy + tri * 2.5);
+      ctx.lineTo(tri, oy + tri * 2.5);
+      ctx.lineTo(0, oy + 3);
       ctx.fill();
     }
 
@@ -657,24 +702,24 @@
     if (showLabels && scale > 1) {
       let fs = Math.min(13, ow / (obj.name.length * 0.55));
       fs = Math.max(8, fs);
-      if (fs < 6) return;
-      const tcx = ox + ow / 2, tcy = oy + oh / 2;
+      if (fs >= 6) {
+        const tc = themeColors();
+        ctx.font = `600 ${fs}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = tc.labelShadow;
+        ctx.fillText(obj.name, 0.5, -fs * 0.5 + 0.5, ow - 8);
+        ctx.fillStyle = tc.labelText;
+        ctx.fillText(obj.name, 0, -fs * 0.5, ow - 8);
 
-      // Text shadow for readability
-      const tc = themeColors();
-      ctx.font = `600 ${fs}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = tc.labelShadow;
-      ctx.fillText(obj.name, tcx + 0.5, tcy - fs * 0.5 + 0.5, ow - 8);
-      ctx.fillStyle = tc.labelText;
-      ctx.fillText(obj.name, tcx, tcy - fs * 0.5, ow - 8);
-
-      const dimTxt = `${fmt(obj.w)} x ${fmt(obj.h)}`;
-      ctx.font = `${Math.max(7, fs - 2)}px sans-serif`;
-      ctx.fillStyle = tc.dimSubText;
-      ctx.fillText(dimTxt, tcx, tcy + fs * 0.6, ow - 8);
+        const dimTxt = `${fmt(obj.w)} x ${fmt(obj.h)}`;
+        ctx.font = `${Math.max(7, fs - 2)}px sans-serif`;
+        ctx.fillStyle = tc.dimSubText;
+        ctx.fillText(dimTxt, 0, fs * 0.6, ow - 8);
+      }
     }
+
+    ctx.restore();
   }
 
   function drawCarDetail(ox, oy, ow, oh) {
@@ -812,13 +857,13 @@
   function rotateSelected() {
     const obj = objects.find(o => o.id === selected);
     if (!obj) return;
-    const d = eff(obj);
-    const cxBefore = obj.x + d.w / 2;
-    const cyBefore = obj.y + d.h / 2;
-    obj.rotation = (obj.rotation + 90) % 360;
-    const d2 = eff(obj);
-    obj.x = snap(cxBefore - d2.w / 2);
-    obj.y = snap(cyBefore - d2.h / 2);
+    const bb = boundingBox(obj);
+    const cxBefore = obj.x + bb.w / 2;
+    const cyBefore = obj.y + bb.h / 2;
+    obj.rotation = (obj.rotation + 45) % 360;
+    const bb2 = boundingBox(obj);
+    obj.x = snap(cxBefore - bb2.w / 2);
+    obj.y = snap(cyBefore - bb2.h / 2);
     updateSelected();
     save();
     render();
@@ -830,8 +875,15 @@
     const sorted = objects.map((o, i) => ({ o, i }))
       .sort((a, b) => (b.o.layer || 1) - (a.o.layer || 1) || b.i - a.i);
     for (const { o } of sorted) {
-      const d = eff(o);
-      if (wx >= o.x && wx <= o.x + d.w && wy >= o.y && wy <= o.y + d.h) return o;
+      const bb = boundingBox(o);
+      const cx = o.x + bb.w / 2;
+      const cy = o.y + bb.h / 2;
+      const dx = wx - cx;
+      const dy = wy - cy;
+      const rad = -o.rotation * Math.PI / 180;
+      const lx = dx * Math.cos(rad) - dy * Math.sin(rad);
+      const ly = dx * Math.sin(rad) + dy * Math.cos(rad);
+      if (Math.abs(lx) <= o.w / 2 && Math.abs(ly) <= o.h / 2) return o;
     }
     return null;
   }

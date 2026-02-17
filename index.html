@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Garage Floor Visualizer</title>
-  <link rel="stylesheet" href="style.css?v=1.7.0">
+  <link rel="stylesheet" href="style.css?v=1.8.0">
 </head>
 <body>
   <div id="app">
@@ -12,7 +12,7 @@
       <div class="header-row">
         <h1>Garage Floor Planner</h1>
         <div class="header-right">
-          <span class="version">v1.7.0</span>
+          <span class="version">v1.8.0</span>
           <button id="btn-info" class="info-btn" title="Changelog">i</button>
         </div>
       </div>
@@ -115,7 +115,7 @@
         <p id="sel-rotation" class="sel-info dim"></p>
         <button id="btn-apply-edit" class="btn primary">Apply Changes</button>
         <div class="btn-row">
-          <button id="btn-rotate" class="btn">Rotate 90&deg;</button>
+          <button id="btn-rotate" class="btn">Rotate 45&deg;</button>
           <button id="btn-delete" class="btn danger">Delete</button>
         </div>
       </section>
@@ -156,10 +156,17 @@
   <div id="modal-overlay" class="modal-overlay" style="display:none">
     <div class="modal">
       <div class="modal-header">
-        <h2>Garage Floor Planner <span class="version">v1.7.0</span></h2>
+        <h2>Garage Floor Planner <span class="version">v1.8.0</span></h2>
         <button id="btn-modal-close" class="modal-close">&times;</button>
       </div>
       <div class="modal-body">
+        <h3>v1.8.0</h3>
+        <ul>
+          <li>Diagonal rotation: rotate objects in 45-degree increments for angled placement</li>
+          <li>Accurate hit testing for rotated objects (clicks match actual shape, not bounding box)</li>
+          <li>New catalog items: Tires (car/truck stacks, tire rack), Bins &amp; Totes (27 gal yellow tote, more), extra toolboxes (Milwaukee, Craftsman, Snap-on)</li>
+          <li>Selection highlight now follows object rotation</li>
+        </ul>
         <h3>v1.7.0</h3>
         <ul>
           <li>Light theme: toggle between dark and light mode with the button at the bottom-left of the canvas</li>
@@ -254,6 +261,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=1.7.0"></script>
+  <script src="app.js?v=1.8.0"></script>
 </body>
 </html>
