@@ -111,7 +111,6 @@
   let activeCategory = 'vehicles';
   let dragging = null;
   let darkMode = localStorage.getItem('garageTheme') !== 'light';
-  let rotationStep = parseInt(localStorage.getItem('garageRotStep')) || 45;
 
   // ===== THEME COLORS (canvas) =====
   const themes = {
@@ -618,7 +617,7 @@
       .sort((a, b) => (a.obj.layer || 1) - (b.obj.layer || 1) || a.i - b.i);
     for (const { obj } of sorted) drawObject(obj);
 
-    // Selection highlight
+    // Selection highlight + rotation handles
     if (selected) {
       const obj = objects.find(o => o.id === selected);
       if (obj) {
@@ -638,6 +637,24 @@
         ctx.setLineDash([6, 3]);
         ctx.stroke();
         ctx.setLineDash([]);
+
+        // Corner rotation handles
+        const handleR = 5;
+        for (const [hx, hy] of [
+          [-ow / 2 - pad, -oh / 2 - pad],
+          [ ow / 2 + pad, -oh / 2 - pad],
+          [ ow / 2 + pad,  oh / 2 + pad],
+          [-ow / 2 - pad,  oh / 2 + pad],
+        ]) {
+          ctx.beginPath();
+          ctx.arc(hx, hy, handleR, 0, Math.PI * 2);
+          ctx.fillStyle = '#00ff88';
+          ctx.fill();
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+
         ctx.restore();
       }
     }
@@ -861,13 +878,44 @@
     const bb = boundingBox(obj);
     const cxBefore = obj.x + bb.w / 2;
     const cyBefore = obj.y + bb.h / 2;
-    obj.rotation = (obj.rotation + rotationStep) % 360;
+    obj.rotation = (obj.rotation + 90) % 360;
     const bb2 = boundingBox(obj);
     obj.x = snap(cxBefore - bb2.w / 2);
     obj.y = snap(cyBefore - bb2.h / 2);
     updateSelected();
     save();
     render();
+  }
+
+  // ===== ROTATION HANDLE HIT TEST =====
+  function hitRotationHandle(screenX, screenY) {
+    if (!selected) return false;
+    const obj = objects.find(o => o.id === selected);
+    if (!obj) return false;
+
+    const bb = boundingBox(obj);
+    const screenCX = w2cx(obj.x) + bb.w * scale / 2;
+    const screenCY = w2cy(obj.y) + bb.h * scale / 2;
+    const hw = obj.w * scale / 2;
+    const hh = obj.h * scale / 2;
+    const pad = 3;
+    const rad = obj.rotation * Math.PI / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+
+    const corners = [
+      [-hw - pad, -hh - pad],
+      [ hw + pad, -hh - pad],
+      [ hw + pad,  hh + pad],
+      [-hw - pad,  hh + pad],
+    ];
+
+    for (const [lx, ly] of corners) {
+      const sx = screenCX + lx * cos - ly * sin;
+      const sy = screenCY + lx * sin + ly * cos;
+      if (Math.hypot(screenX - sx, screenY - sy) <= 10) return true;
+    }
+    return false;
   }
 
   // ===== HIT TEST =====
@@ -900,6 +948,26 @@
     const wx = c2wx(p.cx), wy = c2wy(p.cy);
 
     if (e.button === 0) {
+      // Check rotation handles first
+      if (selected && hitRotationHandle(p.cx, p.cy)) {
+        const obj = objects.find(o => o.id === selected);
+        if (obj) {
+          const bb = boundingBox(obj);
+          const wcx = obj.x + bb.w / 2;
+          const wcy = obj.y + bb.h / 2;
+          const screenCX = w2cx(wcx);
+          const screenCY = w2cy(wcy);
+          const startAngle = Math.atan2(p.cy - screenCY, p.cx - screenCX);
+          dragging = {
+            type: 'rotate', id: obj.id,
+            startAngle, startRotation: obj.rotation,
+            wcx, wcy,
+          };
+          render();
+          return;
+        }
+      }
+
       const obj = hitTest(wx, wy);
       if (obj) {
         selected = obj.id;
@@ -914,10 +982,37 @@
   });
 
   canvas.addEventListener('mousemove', e => {
-    if (!dragging) return;
+    if (!dragging) {
+      // Update cursor when hovering over rotation handles
+      const p = mpos(e);
+      canvas.style.cursor = (selected && hitRotationHandle(p.cx, p.cy)) ? 'grab' : 'default';
+      return;
+    }
     const p = mpos(e);
 
-    if (dragging.type === 'obj') {
+    if (dragging.type === 'rotate') {
+      const obj = objects.find(o => o.id === dragging.id);
+      if (obj) {
+        const screenCX = w2cx(dragging.wcx);
+        const screenCY = w2cy(dragging.wcy);
+        const currentAngle = Math.atan2(p.cy - screenCY, p.cx - screenCX);
+        let delta = (currentAngle - dragging.startAngle) * 180 / Math.PI;
+        let newRotation = dragging.startRotation + delta;
+        // Snap to 5-degree increments when snap is enabled
+        if (snapEnabled) newRotation = Math.round(newRotation / 5) * 5;
+        newRotation = ((newRotation % 360) + 360) % 360;
+        // Keep center stable
+        const bb = boundingBox(obj);
+        const cx = obj.x + bb.w / 2;
+        const cy = obj.y + bb.h / 2;
+        obj.rotation = newRotation;
+        const bb2 = boundingBox(obj);
+        obj.x = cx - bb2.w / 2;
+        obj.y = cy - bb2.h / 2;
+        updateSelected();
+        render();
+      }
+    } else if (dragging.type === 'obj') {
       const wx = c2wx(p.cx), wy = c2wy(p.cy);
       const obj = objects.find(o => o.id === dragging.id);
       if (obj) {
@@ -933,8 +1028,9 @@
   });
 
   canvas.addEventListener('mouseup', () => {
-    if (dragging?.type === 'obj') save();
+    if (dragging?.type === 'obj' || dragging?.type === 'rotate') save();
     dragging = null;
+    canvas.style.cursor = 'default';
   });
 
   canvas.addEventListener('wheel', e => {
@@ -1058,7 +1154,7 @@
     document.getElementById('edit-d-ft').value = Math.floor(obj.h / 12);
     document.getElementById('edit-d-in').value = Math.round(obj.h % 12);
     document.getElementById('edit-color').value = obj.color;
-    document.getElementById('sel-rotation').textContent = `Rotated ${obj.rotation}\u00b0`;
+    document.getElementById('sel-rotation').textContent = `Rotated ${Math.round(obj.rotation)}\u00b0`;
     document.getElementById('edit-layer').value = obj.layer || 1;
   }
 
@@ -1195,17 +1291,6 @@
 
     document.getElementById('chk-snap').addEventListener('change', e => { snapEnabled = e.target.checked; });
     document.getElementById('chk-labels').addEventListener('change', e => { showLabels = e.target.checked; render(); });
-
-    const rotStepInput = document.getElementById('rot-step');
-    const rotateBtn = document.getElementById('btn-rotate');
-    rotStepInput.value = rotationStep;
-    rotateBtn.textContent = `Rotate ${rotationStep}\u00b0`;
-    rotStepInput.addEventListener('input', () => {
-      const v = Math.max(1, Math.min(180, parseInt(rotStepInput.value) || 45));
-      rotationStep = v;
-      localStorage.setItem('garageRotStep', v);
-      rotateBtn.textContent = `Rotate ${v}\u00b0`;
-    });
 
     // Layer input — apply immediately on change
     document.getElementById('edit-layer').addEventListener('input', () => {

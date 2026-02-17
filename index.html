@@ -115,7 +115,7 @@
         <p id="sel-rotation" class="sel-info dim"></p>
         <button id="btn-apply-edit" class="btn primary">Apply Changes</button>
         <div class="btn-row">
-          <button id="btn-rotate" class="btn">Rotate 45&deg;</button>
+          <button id="btn-rotate" class="btn">Rotate 90&deg;</button>
           <button id="btn-delete" class="btn danger">Delete</button>
         </div>
       </section>
@@ -125,7 +125,8 @@
         <ul>
           <li>Click item to add to room</li>
           <li>Drag object to move</li>
-          <li><kbd>R</kbd> Rotate selected</li>
+          <li><kbd>R</kbd> Rotate 90&deg;</li>
+          <li>Drag corner handle to free rotate</li>
           <li><kbd>Del</kbd> Delete selected</li>
           <li>Scroll to zoom</li>
           <li>Drag empty space to pan</li>
@@ -146,7 +147,6 @@
         <button id="btn-fit" class="ctrl-btn">Fit</button>
         <label class="ctrl-label"><input type="checkbox" id="chk-snap" checked> Snap</label>
         <label class="ctrl-label"><input type="checkbox" id="chk-labels" checked> Labels</label>
-        <label class="ctrl-label">Rot <input type="number" id="rot-step" value="45" min="1" max="180" step="5" class="rot-input">&deg;</label>
         <div class="ctrl-sep"></div>
         <button id="btn-export" class="ctrl-btn export-btn" title="Export as PNG">PNG</button>
       </div>
