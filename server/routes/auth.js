@@ -2,16 +2,25 @@ const { Router } = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
+const rateLimit = require('express-rate-limit');
 const { stmts } = require('../db');
 const { auth, JWT_SECRET } = require('../middleware/auth');
 
 const router = Router();
 
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 attempts per window
+  message: { error: 'Too many login attempts, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 function makeToken(user) {
   return jwt.sign(
     { id: user.id, username: user.username, is_admin: user.is_admin },
     JWT_SECRET,
-    { expiresIn: '30d' }
+    { expiresIn: '7d' }
   );
 }
 
@@ -20,7 +29,7 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-router.post('/login', (req, res) => {
+router.post('/login', loginLimiter, (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password are required' });

@@ -968,9 +968,24 @@
     for (const item of cat.items) {
       const btn = document.createElement('button');
       btn.className = 'catalog-item';
-      btn.innerHTML = `<span class="item-color" style="background:${item.color}"></span>
-        <span class="item-info"><span class="item-name">${item.name}</span>
-        <span class="item-dims">${fmt(item.w)} x ${fmt(item.h)}</span></span>`;
+
+      const swatch = document.createElement('span');
+      swatch.className = 'item-color';
+      swatch.style.background = item.color;
+
+      const info = document.createElement('span');
+      info.className = 'item-info';
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'item-name';
+      nameSpan.textContent = item.name;
+      const dimsSpan = document.createElement('span');
+      dimsSpan.className = 'item-dims';
+      dimsSpan.textContent = `${fmt(item.w)} x ${fmt(item.h)}`;
+      info.appendChild(nameSpan);
+      info.appendChild(dimsSpan);
+
+      btn.appendChild(swatch);
+      btn.appendChild(info);
       btn.addEventListener('click', () => addObject(item));
       list.appendChild(btn);
     }
