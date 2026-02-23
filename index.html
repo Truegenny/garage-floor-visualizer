@@ -51,7 +51,8 @@
       </section>
 
       <section class="panel">
-        <h2>Room Size</h2>
+        <h2>Rooms</h2>
+        <div id="room-tabs" class="room-tabs"></div>
         <div class="dim-row">
           <label>Width</label>
           <input type="number" id="room-w-ft" value="20" min="1" max="100"> ft
@@ -63,6 +64,10 @@
           <input type="number" id="room-d-in" value="0" min="0" max="11"> in
         </div>
         <button id="btn-update-room" class="btn primary">Update Room</button>
+        <div class="btn-row">
+          <button id="btn-add-room" class="btn">Add Room</button>
+          <button id="btn-delete-room" class="btn danger">Delete Room</button>
+        </div>
       </section>
 
       <section class="panel">

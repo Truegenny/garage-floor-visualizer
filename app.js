@@ -100,7 +100,9 @@
   ];
 
   // ===== STATE =====
-  let room = { w: 240, h: 240 };
+  let rooms = [{ id: 1, name: 'Room 1', w: 240, h: 240, x: 0, y: 0 }];
+  let activeRoomId = 1;
+  let nextRoomId = 2;
   let objects = [];
   let nextId = 1;
   let selected = null;
@@ -251,7 +253,7 @@
 
   async function savePlan() {
     if (!authToken) return;
-    const layoutData = JSON.stringify({ room, objects, nextId });
+    const layoutData = JSON.stringify({ rooms, objects, nextId, nextRoomId, activeRoomId });
     if (currentPlanId) {
       try {
         await apiFetch(`/api/plans/${currentPlanId}`, {
@@ -269,7 +271,7 @@
     if (!authToken) return;
     const name = prompt('Plan name:', 'My Garage Layout');
     if (!name) return;
-    const layoutData = JSON.stringify({ room, objects, nextId });
+    const layoutData = JSON.stringify({ rooms, objects, nextId, nextRoomId, activeRoomId });
     try {
       const plan = await apiFetch('/api/plans', {
         method: 'POST',
@@ -288,15 +290,20 @@
       const plan = await apiFetch(`/api/plans/${id}`);
       if (!plan) return;
       const d = JSON.parse(plan.data);
-      room = d.room || room;
+      if (d.rooms) {
+        rooms = d.rooms;
+        nextRoomId = d.nextRoomId || rooms.length + 1;
+        activeRoomId = d.activeRoomId || rooms[0].id;
+      } else if (d.room) {
+        rooms = [{ id: 1, name: 'Room 1', w: d.room.w, h: d.room.h, x: 0, y: 0 }];
+        nextRoomId = 2;
+        activeRoomId = 1;
+      }
       objects = (d.objects || []).map(o => ({ ...o, layer: o.layer || 1 }));
       nextId = d.nextId || 1;
       selected = null;
       currentPlanId = plan.id;
-      document.getElementById('room-w-ft').value = Math.floor(room.w / 12);
-      document.getElementById('room-w-in').value = Math.round(room.w % 12);
-      document.getElementById('room-d-ft').value = Math.floor(room.h / 12);
-      document.getElementById('room-d-in').value = Math.round(room.h % 12);
+      selectRoom(activeRoomId);
       updateSelected();
       renderPlansList();
       saveLocal();
@@ -333,7 +340,7 @@
     if (autoSaveTimer) clearTimeout(autoSaveTimer);
     autoSaveTimer = setTimeout(async () => {
       autoSaveTimer = null;
-      const layoutData = JSON.stringify({ room, objects, nextId });
+      const layoutData = JSON.stringify({ rooms, objects, nextId, nextRoomId, activeRoomId });
       try {
         await apiFetch(`/api/plans/${currentPlanId}`, {
           method: 'PUT',
@@ -427,7 +434,7 @@
         if (plansList.length === 0 && objects.length > 0) {
           if (confirm('You have a layout in your browser. Import it as a saved plan?')) {
             const name = prompt('Plan name:', 'Imported Layout') || 'Imported Layout';
-            const layoutData = JSON.stringify({ room, objects, nextId });
+            const layoutData = JSON.stringify({ rooms, objects, nextId, nextRoomId, activeRoomId });
             try {
               const plan = await apiFetch('/api/plans', {
                 method: 'POST',
@@ -542,6 +549,82 @@
   function c2wx(cx) { return (cx - canvas.width / 2) / scale + pan.x; }
   function c2wy(cy) { return (cy - canvas.height / 2) / scale + pan.y; }
 
+  // ===== ROOM DRAWING =====
+  function drawRoom(rm, tc) {
+    const rx = w2cx(rm.x), ry = w2cy(rm.y);
+    const rw = rm.w * scale, rh = rm.h * scale;
+
+    // Floor
+    ctx.fillStyle = tc.floor;
+    ctx.fillRect(rx, ry, rw, rh);
+
+    // Grid
+    ctx.strokeStyle = tc.grid;
+    ctx.lineWidth = 0.5;
+    for (let x = 0; x <= rm.w; x += 12) {
+      const cx = w2cx(rm.x + x);
+      ctx.beginPath(); ctx.moveTo(cx, ry); ctx.lineTo(cx, ry + rh); ctx.stroke();
+    }
+    for (let y = 0; y <= rm.h; y += 12) {
+      const cy = w2cy(rm.y + y);
+      ctx.beginPath(); ctx.moveTo(rx, cy); ctx.lineTo(rx + rw, cy); ctx.stroke();
+    }
+
+    // Walls
+    const wallPx = Math.max(4, 4 * scale);
+    ctx.strokeStyle = tc.wallOuter;
+    ctx.lineWidth = wallPx;
+    ctx.strokeRect(rx, ry, rw, rh);
+    ctx.strokeStyle = tc.wallInner;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(rx + wallPx / 2, ry + wallPx / 2, rw - wallPx, rh - wallPx);
+
+    // Active room accent
+    if (rm.id === activeRoomId && rooms.length > 1) {
+      ctx.strokeStyle = '#00ff8844';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(rx - 2, ry - 2, rw + 4, rh + 4);
+    }
+
+    // Dimensions
+    const dimOffset = wallPx / 2 + 14;
+    ctx.fillStyle = tc.dimText;
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(fmt(rm.w), rx + rw / 2, ry - dimOffset);
+    ctx.save();
+    ctx.translate(rx - dimOffset, ry + rh / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(fmt(rm.h), 0, 0);
+    ctx.restore();
+
+    // Dimension lines
+    ctx.strokeStyle = tc.dimLine;
+    ctx.lineWidth = 1;
+    const tickLen = 6;
+    const dlY = ry - dimOffset + 4;
+    ctx.beginPath();
+    ctx.moveTo(rx, dlY); ctx.lineTo(rx + rw, dlY);
+    ctx.moveTo(rx, dlY - tickLen); ctx.lineTo(rx, dlY + tickLen);
+    ctx.moveTo(rx + rw, dlY - tickLen); ctx.lineTo(rx + rw, dlY + tickLen);
+    ctx.stroke();
+    const dlX = rx - dimOffset + 4;
+    ctx.beginPath();
+    ctx.moveTo(dlX, ry); ctx.lineTo(dlX, ry + rh);
+    ctx.moveTo(dlX - tickLen, ry); ctx.lineTo(dlX + tickLen, ry);
+    ctx.moveTo(dlX - tickLen, ry + rh); ctx.lineTo(dlX + tickLen, ry + rh);
+    ctx.stroke();
+
+    // Room name label below
+    ctx.fillStyle = tc.dimText;
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(rm.name, rx + rw / 2, ry + rh + wallPx / 2 + 4);
+  }
+
   // ===== RENDERING =====
   function render() {
     const W = canvas.width, H = canvas.height;
@@ -552,65 +635,8 @@
     ctx.fillStyle = tc.canvasBg;
     ctx.fillRect(0, 0, W, H);
 
-    // Room floor
-    const rx = w2cx(0), ry = w2cy(0);
-    const rw = room.w * scale, rh = room.h * scale;
-    ctx.fillStyle = tc.floor;
-    ctx.fillRect(rx, ry, rw, rh);
-
-    // Grid
-    ctx.strokeStyle = tc.grid;
-    ctx.lineWidth = 0.5;
-    for (let x = 0; x <= room.w; x += 12) {
-      const cx = w2cx(x);
-      ctx.beginPath(); ctx.moveTo(cx, ry); ctx.lineTo(cx, ry + rh); ctx.stroke();
-    }
-    for (let y = 0; y <= room.h; y += 12) {
-      const cy = w2cy(y);
-      ctx.beginPath(); ctx.moveTo(rx, cy); ctx.lineTo(rx + rw, cy); ctx.stroke();
-    }
-
-    // Room walls — thick with depth
-    const wallPx = Math.max(4, 4 * scale);
-    ctx.strokeStyle = tc.wallOuter;
-    ctx.lineWidth = wallPx;
-    ctx.strokeRect(rx, ry, rw, rh);
-    ctx.strokeStyle = tc.wallInner;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(rx + wallPx / 2, ry + wallPx / 2, rw - wallPx, rh - wallPx);
-
-    // Room dimensions
-    const dimOffset = wallPx / 2 + 14;
-    ctx.fillStyle = tc.dimText;
-    ctx.font = 'bold 13px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    ctx.fillText(fmt(room.w), rx + rw / 2, ry - dimOffset);
-    ctx.save();
-    ctx.translate(rx - dimOffset, ry + rh / 2);
-    ctx.rotate(-Math.PI / 2);
-    ctx.textBaseline = 'bottom';
-    ctx.fillText(fmt(room.h), 0, 0);
-    ctx.restore();
-
-    // Dimension lines
-    ctx.strokeStyle = tc.dimLine;
-    ctx.lineWidth = 1;
-    const tickLen = 6;
-    // Top width line
-    const dlY = ry - dimOffset + 4;
-    ctx.beginPath();
-    ctx.moveTo(rx, dlY); ctx.lineTo(rx + rw, dlY);
-    ctx.moveTo(rx, dlY - tickLen); ctx.lineTo(rx, dlY + tickLen);
-    ctx.moveTo(rx + rw, dlY - tickLen); ctx.lineTo(rx + rw, dlY + tickLen);
-    ctx.stroke();
-    // Left depth line
-    const dlX = rx - dimOffset + 4;
-    ctx.beginPath();
-    ctx.moveTo(dlX, ry); ctx.lineTo(dlX, ry + rh);
-    ctx.moveTo(dlX - tickLen, ry); ctx.lineTo(dlX + tickLen, ry);
-    ctx.moveTo(dlX - tickLen, ry + rh); ctx.lineTo(dlX + tickLen, ry + rh);
-    ctx.stroke();
+    // Rooms
+    for (const rm of rooms) drawRoom(rm, tc);
 
     // Objects (sorted by layer — higher layers draw on top)
     const sorted = objects.map((obj, i) => ({ obj, i }))
@@ -1042,8 +1068,8 @@
     // Validate current state - reset if corrupted
     if (!isFinite(pan.x) || !isFinite(pan.y) || !isFinite(scale)) {
       scale = 3;
-      pan.x = room.w / 2;
-      pan.y = room.h / 2;
+      pan.x = rooms[0].x + rooms[0].w / 2;
+      pan.y = rooms[0].y + rooms[0].h / 2;
       render();
       return;
     }
@@ -1064,7 +1090,9 @@
 
     // Only update pan if new values are valid and within reasonable bounds
     if (isFinite(newPanX) && isFinite(newPanY)) {
-      const maxPan = Math.max(room.w, room.h) * 2;
+      let maxDim = 0;
+      for (const rm of rooms) maxDim = Math.max(maxDim, rm.x + rm.w, rm.y + rm.h);
+      const maxPan = maxDim * 2;
       pan.x = Math.max(-maxPan, Math.min(maxPan, newPanX));
       pan.y = Math.max(-maxPan, Math.min(maxPan, newPanY));
     }
@@ -1174,28 +1202,88 @@
     render();
   }
 
+  // ===== ROOM MANAGEMENT =====
+  function selectRoom(id) {
+    activeRoomId = id;
+    const rm = rooms.find(r => r.id === id);
+    if (!rm) return;
+    document.getElementById('room-w-ft').value = Math.floor(rm.w / 12);
+    document.getElementById('room-w-in').value = Math.round(rm.w % 12);
+    document.getElementById('room-d-ft').value = Math.floor(rm.h / 12);
+    document.getElementById('room-d-in').value = Math.round(rm.h % 12);
+    renderRoomTabs();
+    render();
+  }
+
+  function renderRoomTabs() {
+    const container = document.getElementById('room-tabs');
+    container.innerHTML = '';
+    for (const rm of rooms) {
+      const btn = document.createElement('button');
+      btn.className = 'tab-btn' + (rm.id === activeRoomId ? ' active' : '');
+      btn.textContent = rm.name;
+      btn.addEventListener('click', () => selectRoom(rm.id));
+      container.appendChild(btn);
+    }
+  }
+
+  function addRoom() {
+    let maxRight = 0;
+    for (const rm of rooms) maxRight = Math.max(maxRight, rm.x + rm.w);
+    const newRoom = {
+      id: nextRoomId++,
+      name: `Room ${rooms.length + 1}`,
+      w: 240, h: 240,
+      x: maxRight + 24, y: 0,
+    };
+    rooms.push(newRoom);
+    selectRoom(newRoom.id);
+    save();
+    fitView();
+  }
+
+  function deleteRoom() {
+    if (rooms.length <= 1) return;
+    rooms = rooms.filter(r => r.id !== activeRoomId);
+    activeRoomId = rooms[0].id;
+    selectRoom(activeRoomId);
+    save();
+    fitView();
+  }
+
   function updateRoom() {
+    const rm = rooms.find(r => r.id === activeRoomId);
+    if (!rm) return;
     const wf = parseInt(document.getElementById('room-w-ft').value) || 0;
     const wi = parseInt(document.getElementById('room-w-in').value) || 0;
     const df = parseInt(document.getElementById('room-d-ft').value) || 0;
     const di = parseInt(document.getElementById('room-d-in').value) || 0;
-    room.w = Math.max(12, wf * 12 + wi);
-    room.h = Math.max(12, df * 12 + di);
+    rm.w = Math.max(12, wf * 12 + wi);
+    rm.h = Math.max(12, df * 12 + di);
     save();
     fitView();
   }
 
   function fitView() {
     const pad = 60;
-    scale = Math.min((canvas.width - pad * 2) / room.w, (canvas.height - pad * 2) / room.h);
-    pan.x = room.w / 2;
-    pan.y = room.h / 2;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const rm of rooms) {
+      minX = Math.min(minX, rm.x);
+      minY = Math.min(minY, rm.y);
+      maxX = Math.max(maxX, rm.x + rm.w);
+      maxY = Math.max(maxY, rm.y + rm.h);
+    }
+    const totalW = maxX - minX;
+    const totalH = maxY - minY;
+    scale = Math.min((canvas.width - pad * 2) / totalW, (canvas.height - pad * 2) / totalH);
+    pan.x = minX + totalW / 2;
+    pan.y = minY + totalH / 2;
     render();
   }
 
   // ===== PERSISTENCE =====
   function saveLocal() {
-    try { localStorage.setItem('garageLayout', JSON.stringify({ room, objects, nextId })); }
+    try { localStorage.setItem('garageLayout', JSON.stringify({ rooms, objects, nextId, nextRoomId, activeRoomId })); }
     catch (_) {}
   }
 
@@ -1208,13 +1296,18 @@
     try {
       const d = JSON.parse(localStorage.getItem('garageLayout'));
       if (d) {
-        room = d.room || room;
+        if (d.rooms) {
+          rooms = d.rooms;
+          nextRoomId = d.nextRoomId || rooms.length + 1;
+          activeRoomId = d.activeRoomId || rooms[0].id;
+        } else if (d.room) {
+          rooms = [{ id: 1, name: 'Room 1', w: d.room.w, h: d.room.h, x: 0, y: 0 }];
+          nextRoomId = 2;
+          activeRoomId = 1;
+        }
         objects = (d.objects || []).map(o => ({ ...o, layer: o.layer || 1 }));
         nextId = d.nextId || 1;
-        document.getElementById('room-w-ft').value = Math.floor(room.w / 12);
-        document.getElementById('room-w-in').value = Math.round(room.w % 12);
-        document.getElementById('room-d-ft').value = Math.floor(room.h / 12);
-        document.getElementById('room-d-in').value = Math.round(room.h % 12);
+        selectRoom(activeRoomId);
       }
     } catch (_) {}
   }
@@ -1240,6 +1333,7 @@
     }
 
     load();
+    renderRoomTabs();
     populateCatalog('vehicles');
 
     // Theme toggle
@@ -1276,6 +1370,8 @@
     document.getElementById('btn-save-as-new').addEventListener('click', saveAsNew);
 
     document.getElementById('btn-update-room').addEventListener('click', updateRoom);
+    document.getElementById('btn-add-room').addEventListener('click', addRoom);
+    document.getElementById('btn-delete-room').addEventListener('click', deleteRoom);
     document.getElementById('btn-rotate').addEventListener('click', rotateSelected);
     document.getElementById('btn-delete').addEventListener('click', deleteSelected);
     document.getElementById('btn-apply-edit').addEventListener('click', applyEdit);
