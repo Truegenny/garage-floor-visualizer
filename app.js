@@ -1167,7 +1167,7 @@
       list.appendChild(btn);
     }
 
-    document.querySelectorAll('.tab-btn').forEach(t =>
+    document.querySelectorAll('#catalog-tabs .tab-btn').forEach(t =>
       t.classList.toggle('active', t.dataset.cat === catId));
   }
 

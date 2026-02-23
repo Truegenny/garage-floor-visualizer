@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Garage Floor Visualizer</title>
-  <link rel="stylesheet" href="style.css?v=1.8.0">
+  <link rel="stylesheet" href="style.css?v=1.9.0">
 </head>
 <body>
   <div id="app">
@@ -12,7 +12,7 @@
       <div class="header-row">
         <h1>Garage Floor Planner</h1>
         <div class="header-right">
-          <span class="version">v1.8.0</span>
+          <span class="version">v1.9.0</span>
           <button id="btn-info" class="info-btn" title="Changelog">i</button>
         </div>
       </div>
@@ -162,10 +162,20 @@
   <div id="modal-overlay" class="modal-overlay" style="display:none">
     <div class="modal">
       <div class="modal-header">
-        <h2>Garage Floor Planner <span class="version">v1.8.0</span></h2>
+        <h2>Garage Floor Planner <span class="version">v1.9.0</span></h2>
         <button id="btn-modal-close" class="modal-close">&times;</button>
       </div>
       <div class="modal-body">
+        <h3>v1.9.0</h3>
+        <ul>
+          <li>Multi-room support: add multiple rooms to the same floor plan</li>
+          <li>Room tabs for switching between rooms</li>
+          <li>Add/delete rooms with automatic positioning</li>
+          <li>Fit view zooms to show all rooms</li>
+          <li>Corner drag rotation: grab any corner handle to free-rotate objects</li>
+          <li>Snap-to-5&deg; rotation when snap is enabled</li>
+          <li>Backward-compatible save format (old layouts auto-migrate)</li>
+        </ul>
         <h3>v1.8.0</h3>
         <ul>
           <li>Diagonal rotation: rotate objects in 45-degree increments for angled placement</li>
@@ -267,6 +277,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=1.8.0"></script>
+  <script src="app.js?v=1.9.0"></script>
 </body>
 </html>
